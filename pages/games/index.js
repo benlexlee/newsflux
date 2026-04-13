@@ -26,11 +26,8 @@ export default function GamesPage() {
       <AdManager position="interstitial" />
       <main className="container mx-auto px-4 py-8">
         <AdManager position="top" />
-        
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Main game area */}
           <div className="flex-1">
-            {/* Animated game selector tabs */}
             <div className="flex flex-wrap gap-3 mb-8">
               {Object.entries(GAMES).map(([key, game]) => (
                 <button
@@ -50,21 +47,17 @@ export default function GamesPage() {
                 </button>
               ))}
             </div>
-            {/* Game container with glassmorphism */}
             <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-1000"></div>
+              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-30 transition duration-1000"></div>
               <div className="relative bg-gray-900/80 backdrop-blur-md rounded-2xl border border-white/10 p-6 shadow-2xl">
                 <ActiveGameComponent />
               </div>
             </div>
           </div>
-          
-          {/* Side ad column */}
           <div className="lg:w-80">
             <SideAd />
           </div>
         </div>
-        
         <AdManager position="bottom" />
       </main>
       <Footer />

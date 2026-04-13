@@ -34,13 +34,11 @@ export default function Home() {
     fetchNews();
   }, [category]);
 
-  const filteredNews = news;
-
   return (
     <>
       <Head>
         <title>NewsFlux - Latest Financial & Sports News</title>
-        <meta name="description" content="Aggregated financial and sports news from top sources" />
+        <meta name="description" content="Aggregated financial and sports news" />
       </Head>
       <Header />
       <AdManager position="video" />
@@ -58,7 +56,7 @@ export default function Home() {
           <div className="text-center py-20 text-gray-400">Loading news...</div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredNews.map((item, index) => (
+            {news.map((item, index) => (
               <div key={item._id} className="news-card">
                 {item.imageUrl && <img src={item.imageUrl} alt={item.title} className="w-full h-48 object-cover" />}
                 <div className="p-5">
