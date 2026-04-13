@@ -63,7 +63,7 @@ export default function Home() {
                   <div className="text-sm text-blue-600 font-medium mb-2">{item.source}</div>
                   <h2 className="text-xl font-bold mb-2 line-clamp-2">{item.title}</h2>
                   <p className="text-gray-600 mb-4 line-clamp-3">{item.summary}</p>
-                  <Link href={item._id.startsWith('http') ? item._id : `/news/${item._id}`} className="text-blue-600 hover:underline font-medium">Read more →</Link>
+                  <Link href={`/news/${encodeURIComponent(item._id)}`} className="text-blue-600 hover:underline font-medium">Read more →</Link>
                 </div>
                 {index === 1 && <AdManager position="middle" />}
               </div>
