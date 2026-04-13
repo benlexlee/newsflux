@@ -53,3 +53,26 @@
     @apply glass-card overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-2;
   }
 }
+
+/* Admin panel textarea styling – visible, dark background, clear borders */
+textarea {
+  @apply bg-gray-800 text-white border border-gray-600 rounded-lg p-3 w-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+/* Admin panel labels */
+label {
+  @apply text-gray-300 font-medium mb-1 block;
+}
+
+/* Admin panel buttons */
+button {
+  @apply transition-all duration-200;
+}
+
+/* Make admin panel cards use dark background consistently */
+.bg-white {
+  @apply bg-gray-800 !important;
+  color: white;
+}
