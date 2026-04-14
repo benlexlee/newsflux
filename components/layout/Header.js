@@ -9,10 +9,10 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-white shadow-md sticky top-0 z-40">
+    <header className="bg-gray-900 shadow-md sticky top-0 z-40 border-b border-gray-700">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center py-4">
-          <Link href="/" className="text-2xl font-bold text-blue-600">
+          <Link href="/" className="text-2xl font-bold text-blue-500 hover:text-blue-400 transition">
             NewsFlux
           </Link>
           <nav className="hidden md:flex space-x-6">
@@ -20,7 +20,7 @@ export default function Header() {
               <Link
                 key={item.path}
                 href={item.path}
-                className="text-gray-600 hover:text-blue-600 transition"
+                className="text-gray-300 hover:text-blue-400 transition"
               >
                 {item.name}
               </Link>
