@@ -1,29 +1,30 @@
 import { useRouter } from 'next/router';
 import Head from 'next/head';
+import { useEffect, useState } from 'react';
 import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
 import AdManager from '../../components/ads/AdManager';
-import { useEffect, useState } from 'react';
 
 export default function NewsArticle() {
   const router = useRouter();
   const { id } = router.query;
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!id) return;
-    // Fetch the article data from the API
     const fetchArticle = async () => {
       try {
-        // Since we don't store full content, we need to fetch from the news API again
-        const res = await fetch(`/api/news?category=general`);
-        const allArticles = await res.json();
-        const found = allArticles.find(a => a._id === decodeURIComponent(id));
-        setArticle(found || null);
+        const res = await fetch(`/api/article/${encodeURIComponent(id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setArticle(data);
+        } else {
+          setError(true);
+        }
       } catch (err) {
-        console.error(err);
-        setArticle(null);
+        setError(true);
       } finally {
         setLoading(false);
       }
@@ -34,15 +35,18 @@ export default function NewsArticle() {
   if (loading) return (
     <>
       <Header />
-      <main className="container mx-auto px-4 py-6 text-center text-gray-400">Loading article...</main>
+      <main className="container mx-auto px-4 py-20 text-center text-gray-400">Loading article...</main>
       <Footer />
     </>
   );
 
-  if (!article) return (
+  if (error || !article) return (
     <>
       <Header />
-      <main className="container mx-auto px-4 py-6 text-center text-red-400">Article not found.</main>
+      <main className="container mx-auto px-4 py-20 text-center text-red-400">
+        <p>Article not found.</p>
+        <button onClick={() => router.back()} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Go Back</button>
+      </main>
       <Footer />
     </>
   );
@@ -57,11 +61,15 @@ export default function NewsArticle() {
         <AdManager position="top" />
         <article className="max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-md p-6 border border-gray-700">
           <h1 className="text-3xl font-bold mb-2 text-white">{article.title}</h1>
-          <div className="text-gray-400 text-sm mb-4">Source: {article.source} | {new Date(article.publishedAt).toLocaleDateString()}</div>
-          <p className="text-gray-200 leading-relaxed text-lg mb-6">{article.summary}</p>
+          <div className="text-gray-400 text-sm mb-4">
+            Source: {article.source} | {new Date(article.publishedAt).toLocaleDateString()}
+          </div>
+          <div className="text-gray-200 leading-relaxed text-lg mb-6 whitespace-pre-line">
+            {article.summary}
+          </div>
           <div className="flex justify-between items-center">
             <a 
-              href={article._id} 
+              href={article.originalUrl} 
               target="_blank" 
               rel="noopener noreferrer"
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
@@ -69,7 +77,7 @@ export default function NewsArticle() {
               Read original article ↗
             </a>
             <button 
-              onClick={() => window.history.back()}
+              onClick={() => router.back()}
               className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg transition"
             >
               ← Back
