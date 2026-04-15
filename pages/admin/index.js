@@ -3,6 +3,22 @@ import Head from 'next/head';
 import axios from 'axios';
 import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
+import Parser from 'rss-parser';
+
+const parser = new Parser();
+
+const feedUrls = {
+  finance: [
+    'https://feeds.bloomberg.com/markets/news.rss',
+    'https://feeds.reuters.com/reuters/businessNews',
+    'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml',
+  ],
+  sports: [
+    'https://www.espn.com/espn/rss/news',
+    'https://feeds.bbci.co.uk/sport/rss.xml',
+    'https://sports.yahoo.com/top/rss.xml',
+  ],
+};
 
 export default function AdminPanel() {
   const [ads, setAds] = useState({
@@ -14,6 +30,7 @@ export default function AdminPanel() {
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [fetchingNews, setFetchingNews] = useState(false);
 
   useEffect(() => {
     fetchAdSettings();
@@ -41,13 +58,43 @@ export default function AdminPanel() {
     }
   };
 
-  const handleTriggerNews = async () => {
+  const handleFetchNews = async () => {
+    setFetchingNews(true);
+    setMessage('🔄 Fetching news from RSS feeds...');
+    const allArticles = [];
+    const allFeeds = [...feedUrls.finance, ...feedUrls.sports];
+    for (const url of allFeeds) {
+      try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        const xml = await response.text();
+        const feed = await parser.parseString(xml);
+        const articles = feed.items.slice(0, 8).map(item => ({
+          originalUrl: item.link,
+          title: item.title,
+          summary: (item.contentSnippet || item.description || '').substring(0, 1000),
+          source: new URL(url).hostname.replace('www.', ''),
+          category: url.includes('bloomberg') || url.includes('reuters') || url.includes('nytimes') ? 'finance' : 'sports',
+          imageUrl: item.enclosure?.url || '',
+          publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
+        }));
+        allArticles.push(...articles);
+      } catch (err) {
+        console.error(`Error fetching ${url}:`, err);
+      }
+    }
+    // Deduplicate by originalUrl
+    const unique = {};
+    for (const a of allArticles) unique[a.originalUrl] = a;
+    const final = Object.values(unique);
     try {
-      await axios.post('/api/news');
-      setMessage('📰 News aggregation triggered!');
-      setTimeout(() => setMessage(''), 3000);
-    } catch (error) {
-      setMessage('❌ Error triggering news aggregation');
+      const res = await axios.post('/api/store-news', { articles: final });
+      setMessage(`✅ ${res.data.message}`);
+    } catch (err) {
+      setMessage('❌ Error storing articles');
+    } finally {
+      setFetchingNews(false);
+      setTimeout(() => setMessage(''), 4000);
     }
   };
 
@@ -63,27 +110,26 @@ export default function AdminPanel() {
           {/* Ad Settings Card */}
           <div className="bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-700">
             <h2 className="text-xl font-bold mb-4 text-white">📢 Ad Codes</h2>
-            <p className="text-gray-400 text-sm mb-4">Paste your ad codes (Google AdSense, etc.) into the fields below. They will automatically appear in the correct positions.</p>
             <div className="space-y-4">
               <div>
                 <label className="block text-gray-300 font-medium mb-1">Top Banner Ad</label>
-                <textarea rows="3" value={ads.topBannerCode} onChange={(e) => setAds({...ads, topBannerCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm focus:outline-none focus:border-blue-500" placeholder='<ins class="adsbygoogle" ...></ins>' />
+                <textarea rows="3" value={ads.topBannerCode} onChange={(e) => setAds({...ads, topBannerCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" />
               </div>
               <div>
                 <label className="block text-gray-300 font-medium mb-1">Middle Banner Ad</label>
-                <textarea rows="3" value={ads.middleBannerCode} onChange={(e) => setAds({...ads, middleBannerCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" placeholder="Your ad code here" />
+                <textarea rows="3" value={ads.middleBannerCode} onChange={(e) => setAds({...ads, middleBannerCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" />
               </div>
               <div>
                 <label className="block text-gray-300 font-medium mb-1">Bottom Banner Ad</label>
-                <textarea rows="3" value={ads.bottomBannerCode} onChange={(e) => setAds({...ads, bottomBannerCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" placeholder="Your ad code here" />
+                <textarea rows="3" value={ads.bottomBannerCode} onChange={(e) => setAds({...ads, bottomBannerCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" />
               </div>
               <div>
                 <label className="block text-gray-300 font-medium mb-1">Video Ad (once per session)</label>
-                <textarea rows="3" value={ads.videoAdCode} onChange={(e) => setAds({...ads, videoAdCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" placeholder="Your video ad code (e.g., YouTube embed)" />
+                <textarea rows="3" value={ads.videoAdCode} onChange={(e) => setAds({...ads, videoAdCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" />
               </div>
               <div>
                 <label className="block text-gray-300 font-medium mb-1">Interstitial Ad (after 5 pages)</label>
-                <textarea rows="3" value={ads.interstitialAdCode} onChange={(e) => setAds({...ads, interstitialAdCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" placeholder="Your full-page ad code" />
+                <textarea rows="3" value={ads.interstitialAdCode} onChange={(e) => setAds({...ads, interstitialAdCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" />
               </div>
               <button onClick={handleSave} disabled={loading} className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
                 {loading ? 'Saving...' : '💾 Save All Ad Settings'}
@@ -94,9 +140,9 @@ export default function AdminPanel() {
           {/* News & Actions Card */}
           <div className="bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-700">
             <h2 className="text-xl font-bold mb-4 text-white">📰 News Aggregation</h2>
-            <p className="text-gray-300 text-sm mb-4">Fetch the latest headlines from Bloomberg, Reuters, ESPN, BBC, and more.</p>
-            <button onClick={handleTriggerNews} className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition">
-              🔄 Fetch News Now
+            <p className="text-gray-300 text-sm mb-4">Click the button below to fetch the latest headlines from Bloomberg, Reuters, ESPN, BBC, etc. Articles will be stored in the database and will appear in the internal summary pages.</p>
+            <button onClick={handleFetchNews} disabled={fetchingNews} className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
+              {fetchingNews ? 'Fetching...' : '🔄 Fetch News Now'}
             </button>
             <hr className="my-6 border-gray-700" />
             <h3 className="text-lg font-semibold mb-2 text-white">📌 Instructions</h3>
@@ -104,7 +150,7 @@ export default function AdminPanel() {
               <li>Ads are placed automatically across the site (top, middle, bottom, video popup, interstitial).</li>
               <li>Video ad appears once per visit (non‑skippable with countdown).</li>
               <li>Interstitial ad appears after 5 page views.</li>
-              <li>News feeds update every 5–10 minutes automatically.</li>
+              <li>Click "Fetch News Now" to store articles – this populates the database so the internal detail pages show full summaries.</li>
             </ul>
           </div>
         </div>
