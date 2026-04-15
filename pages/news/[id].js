@@ -10,7 +10,6 @@ export default function NewsArticle() {
   const { id } = router.query;
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -21,10 +20,16 @@ export default function NewsArticle() {
           const data = await res.json();
           setArticle(data);
         } else {
-          setError(true);
+          // If not found, redirect to original URL
+          const originalUrl = decodeURIComponent(id);
+          window.location.href = originalUrl;
+          return;
         }
       } catch (err) {
-        setError(true);
+        // On error, also redirect to original
+        const originalUrl = decodeURIComponent(id);
+        window.location.href = originalUrl;
+        return;
       } finally {
         setLoading(false);
       }
@@ -42,13 +47,13 @@ export default function NewsArticle() {
     );
   }
 
-  if (error || !article) {
+  if (!article) {
+    // Should not happen because of redirect, but just in case
     return (
       <>
         <Header />
         <main className="container mx-auto px-4 py-20 text-center text-red-400">
-          <p>Article not found.</p>
-          <button onClick={() => router.back()} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">Go Back</button>
+          <p>Redirecting to original article...</p>
         </main>
         <Footer />
       </>
