@@ -31,6 +31,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [fetchingNews, setFetchingNews] = useState(false);
+  const [fetchProgress, setFetchProgress] = useState('');
 
   useEffect(() => {
     fetchAdSettings();
@@ -60,16 +61,20 @@ export default function AdminPanel() {
 
   const handleFetchNews = async () => {
     setFetchingNews(true);
-    setMessage('🔄 Fetching news from RSS feeds...');
-    const allArticles = [];
+    setFetchProgress('Starting fetch...');
     const allFeeds = [...feedUrls.finance, ...feedUrls.sports];
-    for (const url of allFeeds) {
+    const allArticles = [];
+    let completed = 0;
+
+    // Parallel fetch all feeds
+    const promises = allFeeds.map(async (url) => {
       try {
+        setFetchProgress(`Fetching ${new URL(url).hostname}...`);
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
         const xml = await response.text();
         const feed = await parser.parseString(xml);
-        const articles = feed.items.slice(0, 8).map(item => ({
+        const articles = feed.items.slice(0, 10).map(item => ({
           originalUrl: item.link,
           title: item.title,
           summary: (item.contentSnippet || item.description || '').substring(0, 1000),
@@ -81,12 +86,20 @@ export default function AdminPanel() {
         allArticles.push(...articles);
       } catch (err) {
         console.error(`Error fetching ${url}:`, err);
+      } finally {
+        completed++;
+        setFetchProgress(`Fetched ${completed}/${allFeeds.length} feeds...`);
       }
-    }
-    // Deduplicate by originalUrl
+    });
+
+    await Promise.all(promises);
+
+    // Deduplicate
     const unique = {};
     for (const a of allArticles) unique[a.originalUrl] = a;
     const final = Object.values(unique);
+
+    setFetchProgress(`Storing ${final.length} articles...`);
     try {
       const res = await axios.post('/api/store-news', { articles: final });
       setMessage(`✅ ${res.data.message}`);
@@ -94,6 +107,7 @@ export default function AdminPanel() {
       setMessage('❌ Error storing articles');
     } finally {
       setFetchingNews(false);
+      setFetchProgress('');
       setTimeout(() => setMessage(''), 4000);
     }
   };
@@ -105,6 +119,7 @@ export default function AdminPanel() {
       <main className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6 text-white">Admin Panel</h1>
         {message && <div className="mb-4 p-3 bg-gray-700 text-green-300 rounded-lg border border-green-500">{message}</div>}
+        {fetchProgress && <div className="mb-4 p-2 bg-blue-900 text-blue-200 rounded-lg text-center">{fetchProgress}</div>}
         
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Ad Settings Card */}
@@ -140,17 +155,17 @@ export default function AdminPanel() {
           {/* News & Actions Card */}
           <div className="bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-700">
             <h2 className="text-xl font-bold mb-4 text-white">📰 News Aggregation</h2>
-            <p className="text-gray-300 text-sm mb-4">Click the button below to fetch the latest headlines from Bloomberg, Reuters, ESPN, BBC, etc. Articles will be stored in the database and will appear in the internal summary pages.</p>
+            <p className="text-gray-300 text-sm mb-4">Fetch the latest headlines (parallel, faster). Articles will be stored in the database.</p>
             <button onClick={handleFetchNews} disabled={fetchingNews} className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
-              {fetchingNews ? 'Fetching...' : '🔄 Fetch News Now'}
+              {fetchingNews ? 'Fetching...' : '🔄 Fetch News Now (Parallel)'}
             </button>
             <hr className="my-6 border-gray-700" />
             <h3 className="text-lg font-semibold mb-2 text-white">📌 Instructions</h3>
             <ul className="text-gray-300 text-sm space-y-1 list-disc list-inside">
-              <li>Ads are placed automatically across the site (top, middle, bottom, video popup, interstitial).</li>
-              <li>Video ad appears once per visit (non‑skippable with countdown).</li>
+              <li>Parallel fetch – much faster (3‑5 seconds).</li>
+              <li>Ads are placed automatically across the site.</li>
+              <li>Video ad appears once per visit (non‑skippable).</li>
               <li>Interstitial ad appears after 5 page views.</li>
-              <li>Click "Fetch News Now" to store articles – this populates the database so the internal detail pages show full summaries.</li>
             </ul>
           </div>
         </div>
