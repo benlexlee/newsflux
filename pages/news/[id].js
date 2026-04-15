@@ -1,5 +1,5 @@
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from ' 'react';
 import Head from 'next/head';
 import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
@@ -42,7 +42,6 @@ export default function NewsArticle() {
     );
   }
 
-  // Fallback when article not in database – show a message, no redirect
   if (notFound || !article) {
     const originalUrl = decodeURIComponent(id || '');
     return (
@@ -78,7 +77,6 @@ export default function NewsArticle() {
     );
   }
 
-  // Article found – show summary page
   return (
     <>
       <Head><title>{article.title} - NewsFlux</title></Head>
