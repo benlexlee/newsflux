@@ -8,22 +8,6 @@ import AdManager from '../components/ads/AdManager';
 import MarketTicker from '../components/market/Ticker';
 import HeadlineTicker from '../components/HeadlineTicker';
 import { incrementPageViews } from '../lib/ads';
-import Parser from 'rss-parser';
-
-const parser = new Parser();
-
-const feedUrls = {
-  finance: [
-    'https://feeds.bloomberg.com/markets/news.rss',
-    'https://feeds.reuters.com/reuters/businessNews',
-    'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml',
-  ],
-  sports: [
-    'https://www.espn.com/espn/rss/news',
-    'https://feeds.bbci.co.uk/sport/rss.xml',
-    'https://sports.yahoo.com/top/rss.xml',
-  ],
-};
 
 export default function Home() {
   const router = useRouter();
@@ -41,40 +25,12 @@ export default function Home() {
   useEffect(() => {
     const fetchNews = async () => {
       setLoading(true);
-      let feedList;
-      if (category === 'finance') feedList = feedUrls.finance;
-      else if (category === 'sports') feedList = feedUrls.sports;
-      else feedList = [...feedUrls.finance, ...feedUrls.sports];
-
-      const allArticles = [];
-      for (const url of feedList) {
-        try {
-          // Use a CORS proxy to avoid Vercel server restrictions
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-          const response = await fetch(proxyUrl);
-          const xml = await response.text();
-          const feed = await parser.parseString(xml);
-          const articles = feed.items.slice(0, 5).map(item => ({
-            _id: item.link,
-            title: item.title,
-            summary: (item.contentSnippet || item.description || '').substring(0, 200),
-            source: new URL(url).hostname.replace('www.', ''),
-            category: category === 'finance' ? 'finance' : category === 'sports' ? 'sports' : 'general',
-            imageUrl: item.enclosure?.url || '',
-            publishedAt: item.pubDate || new Date().toISOString(),
-            link: item.link,
-          }));
-          allArticles.push(...articles);
-        } catch (err) {
-          console.error(`Error fetching ${url}:`, err);
-        }
-      }
-      // Shuffle and limit to 15
-      const shuffled = allArticles.sort(() => 0.5 - Math.random());
-      setNews(shuffled.slice(0, 15));
+      const cat = category || 'general';
+      const res = await fetch(`/api/news?category=${cat}`);
+      const data = await res.json();
+      setNews(data);
       setLoading(false);
     };
-
     fetchNews();
   }, [category]);
 
@@ -107,7 +63,7 @@ export default function Home() {
                   <div className="text-sm text-blue-600 font-medium mb-2">{item.source}</div>
                   <h2 className="text-xl font-bold mb-2 line-clamp-2">{item.title}</h2>
                   <p className="text-gray-600 mb-4 line-clamp-3">{item.summary}</p>
-                  <a href={item.link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-medium">Read more →</a>
+                  <Link href={`/news/${encodeURIComponent(item.originalUrl)}`} className="text-blue-600 hover:underline font-medium">Read more →</Link>
                 </div>
                 {index === 1 && <AdManager position="middle" />}
               </div>
