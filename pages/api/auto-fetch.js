@@ -17,9 +17,13 @@ const feedUrls = {
 };
 
 export default async function handler(req, res) {
-  // Secret key to prevent unauthorized access (optional)
-  const secret = req.query.secret;
-  if (secret !== process.env.CRON_SECRET && process.env.NODE_ENV === 'production') {
+  // Allow requests without secret for testing (remove later)
+  const { secret } = req.query;
+  const expectedSecret = process.env.CRON_SECRET;
+  
+  // If secret is provided and matches, or if no secret expected (dev), proceed
+  if (expectedSecret && secret !== expectedSecret) {
+    console.log(`Secret mismatch: got "${secret}", expected "${expectedSecret}"`);
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
