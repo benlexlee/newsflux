@@ -1,5 +1,5 @@
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from ' 'react';
 import Head from 'next/head';
 import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
@@ -10,6 +10,7 @@ export default function NewsArticle() {
   const { id } = router.query;
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -20,13 +21,10 @@ export default function NewsArticle() {
           const data = await res.json();
           setArticle(data);
         } else {
-          // Not found in DB – redirect to original URL immediately
-          window.location.href = decodeURIComponent(id);
-          return;
+          setNotFound(true);
         }
       } catch (err) {
-        window.location.href = decodeURIComponent(id);
-        return;
+        setNotFound(true);
       } finally {
         setLoading(false);
       }
@@ -38,14 +36,49 @@ export default function NewsArticle() {
     return (
       <>
         <Header />
-        <main className="container mx-auto px-4 py-20 text-center text-gray-400">Loading...</main>
+        <main className="container mx-auto px-4 py-20 text-center text-gray-400">Loading article...</main>
         <Footer />
       </>
     );
   }
 
-  if (!article) return null; // Redirect already happened
+  // Fallback when article not in database – show a message, no redirect
+  if (notFound || !article) {
+    const originalUrl = decodeURIComponent(id || '');
+    return (
+      <>
+        <Head><title>Article Preview - NewsFlux</title></Head>
+        <Header />
+        <AdManager position="video" />
+        <AdManager position="interstitial" />
+        <main className="container mx-auto px-4 py-6">
+          <AdManager position="top" />
+          <div className="max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-md p-6 border border-gray-700 text-center">
+            <h1 className="text-2xl font-bold text-white mb-4">Article not yet in our database</h1>
+            <p className="text-gray-300 mb-6">We are continuously adding articles. You can read the original now.</p>
+            <a
+              href={originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-block"
+            >
+              Read original article ↗ (opens in new tab)
+            </a>
+            <button
+              onClick={() => router.back()}
+              className="ml-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg"
+            >
+              ← Back
+            </button>
+          </div>
+          <AdManager position="bottom" />
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
+  // Article found – show summary page
   return (
     <>
       <Head><title>{article.title} - NewsFlux</title></Head>
@@ -64,8 +97,20 @@ export default function NewsArticle() {
             {article.summary}
           </div>
           <div className="flex justify-between items-center">
-            <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">Read full article ↗</a>
-            <button onClick={() => router.back()} className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">← Back</button>
+            <a
+              href={article.originalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition"
+            >
+              Read full article on {article.source} ↗ (opens in new tab)
+            </a>
+            <button
+              onClick={() => router.back()}
+              className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg transition"
+            >
+              ← Back
+            </button>
           </div>
         </article>
         <AdManager position="bottom" />
