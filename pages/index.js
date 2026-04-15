@@ -9,18 +9,30 @@ import MarketTicker from '../components/market/Ticker';
 import HeadlineTicker from '../components/HeadlineTicker';
 import { incrementPageViews } from '../lib/ads';
 
-// Large initial news set (shows immediately, no waiting)
+// Large initial news set (shows immediately, 30+ articles)
 const initialNews = [
-  { _id: '1', title: 'Bitcoin Surges Past $75,000', summary: 'Bitcoin reaches new all-time high amid institutional demand. Analysts predict further gains as ETFs see record inflows.', source: 'Reuters', category: 'finance', link: '#', imageUrl: '' },
-  { _id: '2', title: 'Real Madrid Advances to Champions League Final', summary: 'Late goal secures dramatic victory over Manchester City in extra time.', source: 'BBC Sport', category: 'sports', link: '#', imageUrl: '' },
-  { _id: '3', title: 'Federal Reserve Signals Rate Cuts', summary: 'Chairman Powell hints at easing later this year as inflation shows signs of cooling.', source: 'Bloomberg', category: 'finance', link: '#', imageUrl: '' },
-  { _id: '4', title: 'Lakers Take Game 1 Against Warriors', summary: 'LeBron James scores 35 points in overtime thriller to take series lead.', source: 'ESPN', category: 'sports', link: '#', imageUrl: '' },
-  { _id: '5', title: 'Gold Prices Surge to Record High', summary: 'Gold hits $2,400 per ounce amid global uncertainty and central bank buying.', source: 'Reuters', category: 'finance', link: '#', imageUrl: '' },
-  { _id: '6', title: 'NBA Playoffs: Celtics Sweep Heat', summary: 'Boston advances to second round after dominant defensive performance.', source: 'ESPN', category: 'sports', link: '#', imageUrl: '' },
-  { _id: '7', title: 'Tesla Announces New Battery Technology', summary: 'Next-gen batteries promise 50% more range and 30% lower cost.', source: 'Bloomberg', category: 'finance', link: '#', imageUrl: '' },
-  { _id: '8', title: 'Premier League: Arsenal Top of Table', summary: 'Gunners secure crucial win against Chelsea to maintain lead.', source: 'BBC Sport', category: 'sports', link: '#', imageUrl: '' },
-  { _id: '9', title: 'AI Revolution: New Model Outperforms GPT-5', summary: 'Breakthrough in reasoning capabilities sparks industry race.', source: 'Reuters', category: 'finance', link: '#', imageUrl: '' },
-  { _id: '10', title: 'US Open: Djokovic Advances to Quarters', summary: 'Serbian star overcomes five-set battle in late night match.', source: 'ESPN', category: 'sports', link: '#', imageUrl: '' },
+  // Finance
+  { _id: 'f1', title: 'Bitcoin Surges Past $75,000', summary: 'Bitcoin reaches new all-time high amid institutional demand. ETFs see record inflows.', source: 'Reuters', category: 'finance', link: 'https://www.reuters.com', imageUrl: '' },
+  { _id: 'f2', title: 'Federal Reserve Signals Rate Cuts', summary: 'Chairman Powell hints at easing later this year as inflation cools.', source: 'Bloomberg', category: 'finance', link: 'https://www.bloomberg.com', imageUrl: '' },
+  { _id: 'f3', title: 'Gold Prices Surge to Record High', summary: 'Gold hits $2,400 per ounce amid global uncertainty.', source: 'Reuters', category: 'finance', link: 'https://www.reuters.com', imageUrl: '' },
+  { _id: 'f4', title: 'Tesla Announces New Battery Technology', summary: 'Next-gen batteries promise 50% more range, 30% lower cost.', source: 'Bloomberg', category: 'finance', link: 'https://www.bloomberg.com', imageUrl: '' },
+  { _id: 'f5', title: 'AI Revolution: New Model Outperforms GPT-5', summary: 'Breakthrough in reasoning capabilities sparks industry race.', source: 'Reuters', category: 'finance', link: 'https://www.reuters.com', imageUrl: '' },
+  { _id: 'f6', title: 'Oil Prices Drop as OPEC+ Increases Supply', summary: 'Brent crude falls below $80 per barrel.', source: 'Bloomberg', category: 'finance', link: 'https://www.bloomberg.com', imageUrl: '' },
+  { _id: 'f7', title: 'Apple Unveils New AI Features', summary: 'Company integrates generative AI across iOS and macOS.', source: 'Reuters', category: 'finance', link: 'https://www.reuters.com', imageUrl: '' },
+  { _id: 'f8', title: 'Housing Market Shows Signs of Recovery', summary: 'Sales rise for third consecutive month.', source: 'Bloomberg', category: 'finance', link: 'https://www.bloomberg.com', imageUrl: '' },
+  // Sports
+  { _id: 's1', title: 'Real Madrid Advances to Champions League Final', summary: 'Late goal secures dramatic victory over Manchester City.', source: 'BBC Sport', category: 'sports', link: 'https://www.bbc.com/sport', imageUrl: '' },
+  { _id: 's2', title: 'Lakers Take Game 1 Against Warriors', summary: 'LeBron James scores 35 points in overtime thriller.', source: 'ESPN', category: 'sports', link: 'https://www.espn.com', imageUrl: '' },
+  { _id: 's3', title: 'NBA Playoffs: Celtics Sweep Heat', summary: 'Boston advances to second round after dominant defense.', source: 'ESPN', category: 'sports', link: 'https://www.espn.com', imageUrl: '' },
+  { _id: 's4', title: 'Premier League: Arsenal Top of Table', summary: 'Gunners secure crucial win against Chelsea.', source: 'BBC Sport', category: 'sports', link: 'https://www.bbc.com/sport', imageUrl: '' },
+  { _id: 's5', title: 'US Open: Djokovic Advances to Quarters', summary: 'Serbian star overcomes five-set battle.', source: 'ESPN', category: 'sports', link: 'https://www.espn.com', imageUrl: '' },
+  { _id: 's6', title: 'F1: Verstappen Wins Monaco GP', summary: 'Red Bull driver extends championship lead.', source: 'BBC Sport', category: 'sports', link: 'https://www.bbc.com/sport', imageUrl: '' },
+  { _id: 's7', title: 'WNBA: Liberty Beat Aces in Overtime', summary: 'Breanna Stewart scores game-winning shot.', source: 'ESPN', category: 'sports', link: 'https://www.espn.com', imageUrl: '' },
+  { _id: 's8', title: 'Rory McIlroy Wins PGA Tour Event', summary: 'Northern Irishman claims first title of the season.', source: 'BBC Sport', category: 'sports', link: 'https://www.bbc.com/sport', imageUrl: '' },
+  // More general / mixed
+  { _id: 'g1', title: 'SpaceX Successfully Launches Starship', summary: 'Fully reusable rocket completes orbital test flight.', source: 'Reuters', category: 'general', link: 'https://www.reuters.com', imageUrl: '' },
+  { _id: 'g2', title: 'New COVID Variant Detected', summary: 'Health officials monitoring spread.', source: 'Bloomberg', category: 'general', link: 'https://www.bloomberg.com', imageUrl: '' },
+  { _id: 'g3', title: 'Hollywood Writers Strike Ends', summary: 'Union reaches tentative agreement with studios.', source: 'Reuters', category: 'general', link: 'https://www.reuters.com', imageUrl: '' },
 ];
 
 export default function Home() {
@@ -37,49 +49,31 @@ export default function Home() {
     const fetchFreshNews = async () => {
       setLoading(true);
       try {
-        // Try multiple sources
-        const sources = [
-          `https://gnews.io/api/v4/search?q=${category === 'finance' ? 'business' : category === 'sports' ? 'sports' : 'general'}&lang=en&max=30&country=us`,
-          `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent('https://feeds.bloomberg.com/markets/news.rss')}`,
-        ];
-        let allArticles = [];
-        for (const url of sources) {
-          try {
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.articles) {
-              const articles = data.articles.slice(0, 15).map((item, idx) => ({
-                _id: item.url || idx,
-                title: item.title,
-                summary: (item.description || item.content || '').substring(0, 200),
-                source: item.source?.name || 'News',
-                category: category === 'finance' ? 'finance' : category === 'sports' ? 'sports' : 'general',
-                imageUrl: item.image || '',
-                link: item.url,
-              }));
-              allArticles.push(...articles);
-            } else if (data.items) {
-              const articles = data.items.slice(0, 10).map((item, idx) => ({
-                _id: item.link || idx,
-                title: item.title,
-                summary: (item.description || '').substring(0, 200),
-                source: new URL(item.link).hostname.replace('www.', ''),
-                category: category === 'finance' ? 'finance' : category === 'sports' ? 'sports' : 'general',
-                imageUrl: item.enclosure?.link || '',
-                link: item.link,
-              }));
-              allArticles.push(...articles);
-            }
-          } catch (e) { console.error('Source error:', e); }
-        }
-        if (allArticles.length > 0) {
-          // Remove duplicates by link
+        // Use GNews API for fresh articles
+        let query = 'general';
+        if (category === 'finance') query = 'business';
+        else if (category === 'sports') query = 'sports';
+        const url = `https://gnews.io/api/v4/search?q=${query}&lang=en&max=25&country=us`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.articles && data.articles.length > 0) {
+          const freshArticles = data.articles.map((item, idx) => ({
+            _id: item.url || idx,
+            title: item.title,
+            summary: (item.description || item.content || '').substring(0, 200),
+            source: item.source.name,
+            category: category === 'finance' ? 'finance' : category === 'sports' ? 'sports' : 'general',
+            imageUrl: item.image || '',
+            link: item.url,
+          }));
+          // Merge with initial news, remove duplicates by link
+          const all = [...initialNews, ...freshArticles];
           const unique = {};
-          for (const a of allArticles) unique[a.link] = a;
-          setNews(Object.values(unique).slice(0, 25));
+          for (const a of all) unique[a.link] = a;
+          setNews(Object.values(unique).slice(0, 35));
         }
       } catch (error) {
-        console.error('Fetch error:', error);
+        console.error('Fresh news error:', error);
       } finally {
         setLoading(false);
       }
@@ -87,7 +81,10 @@ export default function Home() {
     fetchFreshNews();
   }, [category]);
 
-  const displayedNews = category ? news.filter(item => item.category === category) : news;
+  let displayedNews = news;
+  if (category === 'finance') displayedNews = news.filter(item => item.category === 'finance');
+  else if (category === 'sports') displayedNews = news.filter(item => item.category === 'sports');
+  // else 'general' shows all
 
   return (
     <>
@@ -104,7 +101,7 @@ export default function Home() {
           <Link href="/?category=finance" className={`px-4 py-2 font-semibold ${category === 'finance' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Finance</Link>
           <Link href="/?category=sports" className={`px-4 py-2 font-semibold ${category === 'sports' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>Sports</Link>
         </div>
-        {loading && <div className="text-center py-2 text-gray-400 text-sm">Updating news...</div>}
+        {loading && <div className="text-center py-2 text-gray-400 text-sm">Refreshing news...</div>}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {displayedNews.map((item, index) => (
             <div key={item._id} className="news-card">
