@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFullscreen } from '../../hooks/useFullscreen';
 
-// Sound effects using Web Audio API
 const playSound = (type) => {
   try {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -63,6 +62,8 @@ export default function EndlessRunner() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [nickname, setNickname] = useState('');
+  const [globalScores, setGlobalScores] = useState([]);
+  const [showGlobal, setShowGlobal] = useState(false);
   const { elementRef, toggleFullscreen } = useFullscreen();
 
   const gameDataRef = useRef({
@@ -88,7 +89,16 @@ export default function EndlessRunner() {
     if (savedHigh) setHighScore(parseInt(savedHigh));
     const savedLeaderboard = localStorage.getItem('runnerLeaderboard');
     if (savedLeaderboard) setLeaderboard(JSON.parse(savedLeaderboard));
+    fetchGlobalScores();
   }, []);
+
+  const fetchGlobalScores = async () => {
+    try {
+      const res = await fetch('/api/scores?game=runner&limit=10');
+      const data = await res.json();
+      setGlobalScores(data);
+    } catch (err) { console.error(err); }
+  };
 
   const saveScoreToLeaderboard = (finalScore) => {
     if (finalScore === 0) return;
@@ -100,6 +110,18 @@ export default function EndlessRunner() {
       setHighScore(finalScore);
       localStorage.setItem('runnerHighScore', finalScore);
     }
+  };
+
+  const saveGlobalScore = async (finalScore) => {
+    if (!nickname.trim() || finalScore === 0) return;
+    try {
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: 'runner', nickname: nickname.trim(), score: finalScore, time: null }),
+      });
+      fetchGlobalScores();
+    } catch (err) { console.error(err); }
   };
 
   const addParticle = (x, y) => {
@@ -357,22 +379,31 @@ export default function EndlessRunner() {
         <h2 className="text-2xl font-bold text-cyan-400">Endless Runner</h2>
         <div className="flex gap-2">
           <button onClick={()=>setShowInstructions(!showInstructions)} className="bg-gray-600 text-white px-3 py-1 rounded">Instructions</button>
-          <button onClick={()=>setShowLeaderboard(!showLeaderboard)} className="bg-green-600 text-white px-3 py-1 rounded">Leaderboard</button>
+          <button onClick={()=>setShowLeaderboard(!showLeaderboard)} className="bg-green-600 text-white px-3 py-1 rounded">Local</button>
+          <button onClick={()=>setShowGlobal(!showGlobal)} className="bg-blue-600 text-white px-3 py-1 rounded">🌍 Global</button>
           <button onClick={toggleFullscreen} className="bg-purple-600 text-white px-3 py-1 rounded">Fullscreen</button>
         </div>
       </div>
       {showInstructions && (
         <div className="bg-gray-800 p-4 rounded-lg mb-4 text-sm">
           <h3 className="font-bold mb-2 text-cyan-300">How to Play</h3>
-          <ul className="list-disc list-inside"><li>🖱️ <strong>Tap left side</strong> to jump | <strong>Tap right side</strong> to shoot</li><li>💣 <strong>Space</strong> = Jump | <strong>F</strong> = Shoot</li><li>💰 Collect coins (+10) | Kill enemies (+20)</li><li>Avoid red spikes and purple enemy bullets</li><li>High score saved locally</li></ul>
+          <ul className="list-disc list-inside"><li>🖱️ <strong>Tap left side</strong> to jump | <strong>Tap right side</strong> to shoot</li><li>💣 <strong>Space</strong> = Jump | <strong>F</strong> = Shoot</li><li>💰 Collect coins (+10) | Kill enemies (+20)</li><li>Avoid red spikes and purple enemy bullets</li><li>Submit your high score to the global leaderboard!</li></ul>
         </div>
       )}
       {showLeaderboard && (
         <div className="bg-gray-800 p-4 rounded-lg mb-4 shadow">
-          <h3 className="font-bold text-lg mb-2 text-cyan-300">🏆 Top Scores</h3>
+          <h3 className="font-bold text-lg mb-2 text-cyan-300">🏆 Your High Scores</h3>
           <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Nickname</th><th>Score</th><th>Date</th></tr></thead>
-          <tbody>{leaderboard.map((e,i)=> <tr key={i} className={i===0?'bg-yellow-900':''}><td className="text-center">{i+1}</td><td>{e.nickname}</td><td className="text-center">{e.score}</td><td className="text-center text-xs">{e.date}</td></tr>)}</tbody></table>
+          <tbody>{leaderboard.map((e,i)=> <tr key={i} className={i===0?'bg-yellow-800':''}><td className="text-center">{i+1}</td><td>{e.nickname}</td><td className="text-center">{e.score}</td><td className="text-center text-xs">{e.date}</td></tr>)}</tbody></table>
           <button onClick={()=>setShowLeaderboard(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
+        </div>
+      )}
+      {showGlobal && (
+        <div className="bg-gray-800 p-4 rounded-lg mb-4 shadow">
+          <h3 className="font-bold text-lg mb-2 text-cyan-300">🌍 Global Leaderboard (All Players)</h3>
+          <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Player</th><th>Score</th><th>Date</th></tr></thead>
+          <tbody>{globalScores.map((e,i)=> <tr key={i} className={i===0?'bg-yellow-800':''}><td className="text-center">{i+1}</td><td>{e.nickname}</td><td className="text-center">{e.score}</td><td className="text-center text-xs">{new Date(e.date).toLocaleDateString()}</td></tr>)}</tbody></table>
+          <button onClick={()=>setShowGlobal(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
         </div>
       )}
       {!gameRunning && !gameOver && <button onClick={startGame} className="mb-4 bg-green-600 text-white px-6 py-2 rounded-lg">🚀 Start Game</button>}
@@ -380,18 +411,16 @@ export default function EndlessRunner() {
         <div className="mb-4 p-4 bg-red-800 rounded-lg text-center">
           <p className="text-red-200 font-bold text-xl">Game Over! Score: {score}</p>
           <div className="mt-2"><input type="text" value={nickname} onChange={(e)=>setNickname(e.target.value)} className="border rounded px-2 py-1 bg-gray-700 text-white" placeholder="Your nickname" />
-          <button onClick={()=>{ saveScoreToLeaderboard(score); setJustFinished(false); }} className="ml-2 bg-blue-600 px-3 py-1 rounded">Submit</button>
+          <button onClick={()=>{ saveScoreToLeaderboard(score); setJustFinished(false); }} className="ml-2 bg-blue-600 px-3 py-1 rounded">Save Local</button>
+          <button onClick={()=>{ saveGlobalScore(score); setJustFinished(false); }} className="ml-2 bg-cyan-600 px-3 py-1 rounded">🌍 Save Global</button>
           <button onClick={()=>setJustFinished(false)} className="ml-2 bg-gray-500 px-3 py-1 rounded">Skip</button></div>
           <button onClick={startGame} className="mt-2 bg-blue-600 px-4 py-2 rounded">Play Again</button>
         </div>
       )}
       <canvas ref={canvasRef} width={800} height={300} className="border border-gray-600 rounded-lg shadow-md w-full" style={{ maxWidth: '100%', height: 'auto' }} />
-      
-      {/* Banner ad space below the game */}
       <div className="mt-4 p-2 bg-gray-800 rounded-lg text-center text-gray-400 text-sm border border-gray-700">
         <span className="text-xs text-gray-500">ADVERTISEMENT</span>
         <div className="mt-1">
-          {/* Your banner ad code here (e.g., Google AdSense) */}
           <div className="bg-gray-700 h-20 flex items-center justify-center rounded">Banner Ad Space</div>
         </div>
       </div>

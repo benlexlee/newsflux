@@ -33,6 +33,8 @@ export default function Sudoku() {
   const [nickname, setNickname] = useState('');
   const [justCompleted, setJustCompleted] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [globalScores, setGlobalScores] = useState([]);
+  const [showGlobal, setShowGlobal] = useState(false);
   const timerRef = useRef(null);
   const { elementRef, toggleFullscreen } = useFullscreen();
 
@@ -42,7 +44,16 @@ export default function Sudoku() {
     const savedLeaderboard = localStorage.getItem('sudokuLeaderboard');
     if (savedLeaderboard) setLeaderboard(JSON.parse(savedLeaderboard));
     setBoard(generateBoard());
+    fetchGlobalScores();
   }, []);
+
+  const fetchGlobalScores = async () => {
+    try {
+      const res = await fetch('/api/scores?game=sudoku&limit=10');
+      const data = await res.json();
+      setGlobalScores(data);
+    } catch (err) { console.error(err); }
+  };
 
   useEffect(() => {
     if (gameStarted && !justCompleted) {
@@ -70,7 +81,7 @@ export default function Sudoku() {
     }
   }, [board, gameStarted, justCompleted, time, bestTime]);
 
-  const submitLeaderboard = () => {
+  const submitLocalScore = () => {
     if (nickname.trim() && time) {
       const newEntry = { nickname: nickname.trim(), time, date: new Date().toLocaleDateString() };
       const newLeaderboard = [...leaderboard, newEntry].sort((a,b) => a.time - b.time).slice(0,5);
@@ -80,6 +91,21 @@ export default function Sudoku() {
       setJustCompleted(false);
       setMessage('');
     }
+  };
+
+  const submitGlobalScore = async () => {
+    if (!nickname.trim()) return;
+    try {
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: 'sudoku', nickname: nickname.trim(), score: 0, time: time }),
+      });
+      fetchGlobalScores();
+      setJustCompleted(false);
+      setNickname('');
+      setMessage('');
+    } catch (err) { console.error(err); }
   };
 
   const handleCellChange = (row, col, val) => {
@@ -116,25 +142,36 @@ export default function Sudoku() {
         <h2 className="text-2xl font-bold text-green-400">🔢 Sudoku</h2>
         <div className="flex gap-2">
           <button onClick={()=>setShowInstructions(!showInstructions)} className="bg-gray-600 text-white px-3 py-1 rounded">Instructions</button>
-          <button onClick={()=>setShowLeaderboard(!showLeaderboard)} className="bg-green-600 text-white px-3 py-1 rounded">Leaderboard</button>
+          <button onClick={()=>setShowLeaderboard(!showLeaderboard)} className="bg-green-600 text-white px-3 py-1 rounded">Local</button>
+          <button onClick={()=>setShowGlobal(!showGlobal)} className="bg-blue-600 text-white px-3 py-1 rounded">🌍 Global</button>
           <button onClick={toggleFullscreen} className="bg-purple-600 text-white px-3 py-1 rounded">Fullscreen</button>
-          <button onClick={resetGame} className="bg-blue-600 text-white px-3 py-1 rounded">New Game</button>
+          <button onClick={resetGame} className="bg-red-600 text-white px-3 py-1 rounded">New Game</button>
         </div>
       </div>
       {showInstructions && (
         <div className="bg-gray-700 p-4 rounded-lg mb-4 text-sm">
           <h3 className="font-bold mb-2 text-green-300">How to Play Sudoku</h3>
-          <ul className="list-disc list-inside"><li>Fill empty cells with numbers 1-9.</li><li>Each row, column, and 3x3 box must contain all numbers 1-9 without repeats.</li><li>Timer starts on first entry.</li><li>Number pad buttons appear on mobile.</li></ul>
+          <ul className="list-disc list-inside"><li>Fill empty cells with numbers 1-9.</li><li>Each row, column, and 3x3 box must contain all numbers 1-9 without repeats.</li><li>Timer starts on first entry.</li><li>Submit your time to the global leaderboard!</li></ul>
         </div>
       )}
       {showLeaderboard && (
         <div className="bg-gray-700 p-4 rounded-lg mb-4 shadow">
-          <h3 className="font-bold text-lg mb-2 text-green-300">🏆 Fastest Sudoku Times</h3>
+          <h3 className="font-bold text-lg mb-2 text-green-300">🏆 Your Fastest Times</h3>
           <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Nickname</th><th>Time (sec)</th><th>Date</th></tr></thead><tbody>
             {leaderboard.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td className="text-center">{idx+1}</td><td>{entry.nickname}</td><td className="text-center">{entry.time.toFixed(1)}</td><td className="text-center text-xs">{entry.date}</td></tr>))}
             {leaderboard.length===0 && <tr><td colSpan="4" className="text-center">No times yet. Solve a puzzle!</td></tr>}
           </tbody></table>
           <button onClick={()=>setShowLeaderboard(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
+        </div>
+      )}
+      {showGlobal && (
+        <div className="bg-gray-700 p-4 rounded-lg mb-4 shadow">
+          <h3 className="font-bold text-lg mb-2 text-cyan-300">🌍 Global Leaderboard (All Players)</h3>
+          <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Player</th><th>Time (sec)</th><th>Date</th></tr></thead><tbody>
+            {globalScores.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td className="text-center">{idx+1}</td><td>{entry.nickname}</td><td className="text-center">{entry.time?.toFixed(1)}</td><td className="text-center text-xs">{new Date(entry.date).toLocaleDateString()}</td></tr>))}
+            {globalScores.length===0 && <tr><td colSpan="4" className="text-center">No global scores yet. Be the first!</td></tr>}
+          </tbody></table>
+          <button onClick={()=>setShowGlobal(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
         </div>
       )}
       <div className="text-center text-sm mb-2">⏱️ Time: {time.toFixed(1)} sec {bestTime && <span className="text-green-400 ml-2">🏆 Best: {bestTime.toFixed(1)}</span>}</div>
@@ -143,7 +180,8 @@ export default function Sudoku() {
         <div className="mb-4 p-4 bg-yellow-800 rounded-lg text-center">
           <p className="text-green-300 font-bold text-xl">You solved it in {time.toFixed(1)} seconds! 🎉</p>
           <div className="mt-2"><input type="text" value={nickname} onChange={(e)=>setNickname(e.target.value)} className="border rounded px-2 py-1 bg-gray-700 text-white" placeholder="Your name" />
-          <button onClick={submitLeaderboard} className="ml-2 bg-blue-600 px-3 py-1 rounded">Save</button>
+          <button onClick={submitLocalScore} className="ml-2 bg-blue-600 px-3 py-1 rounded">Save Local</button>
+          <button onClick={submitGlobalScore} className="ml-2 bg-cyan-600 px-3 py-1 rounded">🌍 Save Global</button>
           <button onClick={()=>setJustCompleted(false)} className="ml-2 bg-gray-500 px-3 py-1 rounded">Skip</button></div>
         </div>
       )}

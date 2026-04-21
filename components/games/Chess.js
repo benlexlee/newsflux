@@ -33,6 +33,8 @@ export default function ChessGame() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [nickname, setNickname] = useState('');
   const [justWon, setJustWon] = useState(false);
+  const [globalScores, setGlobalScores] = useState([]);
+  const [showGlobal, setShowGlobal] = useState(false);
   const timerRef = useRef(null);
   const { elementRef, toggleFullscreen } = useFullscreen();
 
@@ -41,7 +43,16 @@ export default function ChessGame() {
     if (savedBest) setBestTime(parseFloat(savedBest));
     const savedLeaderboard = localStorage.getItem('chessLeaderboard');
     if (savedLeaderboard) setLeaderboard(JSON.parse(savedLeaderboard));
+    fetchGlobalScores();
   }, []);
+
+  const fetchGlobalScores = async () => {
+    try {
+      const res = await fetch('/api/scores?game=chess&limit=10');
+      const data = await res.json();
+      setGlobalScores(data);
+    } catch (err) { console.error(err); }
+  };
 
   useEffect(() => {
     if (gameStarted && !gameOver) {
@@ -66,7 +77,7 @@ export default function ChessGame() {
     }
   }, [gameOver, winner, time, bestTime, justWon]);
 
-  const submitLeaderboard = () => {
+  const submitLocalScore = () => {
     if (nickname.trim() && winner === 'white' && time) {
       const newEntry = { nickname: nickname.trim(), time, date: new Date().toLocaleDateString() };
       const newLeaderboard = [...leaderboard, newEntry].sort((a,b) => a.time - b.time).slice(0,5);
@@ -75,6 +86,20 @@ export default function ChessGame() {
       setNickname('');
       setJustWon(false);
     }
+  };
+
+  const submitGlobalScore = async () => {
+    if (!nickname.trim()) return;
+    try {
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: 'chess', nickname: nickname.trim(), score: 0, time: time }),
+      });
+      fetchGlobalScores();
+      setJustWon(false);
+      setNickname('');
+    } catch (err) { console.error(err); }
   };
 
   const isValidMove = (fromRow, fromCol, toRow, toCol, piece, boardState) => {
@@ -216,25 +241,36 @@ export default function ChessGame() {
             <option value="easy">Easy</option><option value="medium">Medium</option><option value="hard">Hard</option>
           </select>
           <button onClick={()=>setShowInstructions(!showInstructions)} className="bg-gray-600 text-white px-3 py-1 rounded">Instructions</button>
-          <button onClick={()=>setShowLeaderboard(!showLeaderboard)} className="bg-green-600 text-white px-3 py-1 rounded">Leaderboard</button>
+          <button onClick={()=>setShowLeaderboard(!showLeaderboard)} className="bg-green-600 text-white px-3 py-1 rounded">Local</button>
+          <button onClick={()=>setShowGlobal(!showGlobal)} className="bg-blue-600 text-white px-3 py-1 rounded">🌍 Global</button>
           <button onClick={toggleFullscreen} className="bg-purple-600 text-white px-3 py-1 rounded">Fullscreen</button>
-          <button onClick={resetGame} className="bg-blue-600 text-white px-3 py-1 rounded">New Game</button>
+          <button onClick={resetGame} className="bg-red-600 text-white px-3 py-1 rounded">New Game</button>
         </div>
       </div>
       {showInstructions && (
         <div className="bg-gray-700 p-4 rounded-lg mb-4 text-sm">
           <h3 className="font-bold mb-2 text-amber-300">How to Play Chess</h3>
-          <ul className="list-disc list-inside"><li>Click a white piece, then click a square to move it.</li><li>White moves first. Computer plays black.</li><li>Timer starts on your first move.</li><li>Captures and moves have sound effects.</li></ul>
+          <ul className="list-disc list-inside"><li>Click a white piece, then click a square to move it.</li><li>White moves first. Computer plays black.</li><li>Timer starts on your first move.</li><li>Submit your time to the global leaderboard when you win!</li></ul>
         </div>
       )}
       {showLeaderboard && (
         <div className="bg-gray-700 p-4 rounded-lg mb-4 shadow">
-          <h3 className="font-bold text-lg mb-2 text-amber-300">🏆 Fastest Wins</h3>
+          <h3 className="font-bold text-lg mb-2 text-amber-300">🏆 Your Fastest Wins</h3>
           <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Nickname</th><th>Time (sec)</th><th>Date</th></tr></thead><tbody>
             {leaderboard.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td className="text-center">{idx+1}</td><td>{entry.nickname}</td><td className="text-center">{entry.time.toFixed(1)}</td><td className="text-center text-xs">{entry.date}</td></tr>))}
             {leaderboard.length===0 && <tr><td colSpan="4" className="text-center">No times yet. Win a game!</td></tr>}
           </tbody></table>
           <button onClick={()=>setShowLeaderboard(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
+        </div>
+      )}
+      {showGlobal && (
+        <div className="bg-gray-700 p-4 rounded-lg mb-4 shadow">
+          <h3 className="font-bold text-lg mb-2 text-cyan-300">🌍 Global Leaderboard (All Players)</h3>
+          <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Player</th><th>Time (sec)</th><th>Date</th></tr></thead><tbody>
+            {globalScores.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td className="text-center">{idx+1}</td><td>{entry.nickname}</td><td className="text-center">{entry.time?.toFixed(1)}</td><td className="text-center text-xs">{new Date(entry.date).toLocaleDateString()}</td></tr>))}
+            {globalScores.length===0 && <tr><td colSpan="4" className="text-center">No global scores yet. Be the first!</td></tr>}
+          </tbody></table>
+          <button onClick={()=>setShowGlobal(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
         </div>
       )}
       <div className="text-center mb-2 font-semibold">Turn: {turn==='white'?'You (White)':'Computer (Black)'}</div>
@@ -243,7 +279,8 @@ export default function ChessGame() {
         <div className="bg-yellow-800 p-3 rounded-lg mb-4 text-center">
           <p className="text-green-300 font-bold text-xl">{winner==='white'?'You win! 🎉':'Computer wins! 🤖'} {winner==='white' && `Time: ${time.toFixed(1)}s`}</p>
           {winner==='white' && justWon && (<div className="mt-2"><input type="text" value={nickname} onChange={(e)=>setNickname(e.target.value)} className="border rounded px-2 py-1 bg-gray-700 text-white" placeholder="Your name" />
-          <button onClick={submitLeaderboard} className="ml-2 bg-blue-600 px-3 py-1 rounded">Save</button>
+          <button onClick={submitLocalScore} className="ml-2 bg-blue-600 px-3 py-1 rounded">Save Local</button>
+          <button onClick={submitGlobalScore} className="ml-2 bg-cyan-600 px-3 py-1 rounded">🌍 Save Global</button>
           <button onClick={()=>setJustWon(false)} className="ml-2 bg-gray-500 px-3 py-1 rounded">Skip</button></div>)}
           <button onClick={resetGame} className="mt-2 bg-blue-600 px-3 py-1 rounded">Play Again</button>
         </div>
