@@ -6,13 +6,20 @@ import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
 import AdManager from '../../components/ads/AdManager';
 
-// Hardcoded fallback suggestions (in case database is empty)
 const fallbackSuggestions = [
-  { _id: 'fs1', title: 'Bitcoin Surges Past $75,000', summary: 'Bitcoin reaches new all-time high amid institutional demand.', originalUrl: 'https://www.reuters.com', category: 'finance' },
-  { _id: 'fs2', title: 'Real Madrid Advances to Champions League Final', summary: 'Late goal secures dramatic victory.', originalUrl: 'https://www.bbc.com/sport', category: 'sports' },
-  { _id: 'fs3', title: 'Federal Reserve Signals Rate Cuts', summary: 'Powell hints at easing later this year.', originalUrl: 'https://www.bloomberg.com', category: 'finance' },
-  { _id: 'fs4', title: 'Lakers Take Game 1 Against Warriors', summary: 'LeBron James scores 35 points in overtime thriller.', originalUrl: 'https://www.espn.com', category: 'sports' },
+  { _id: 'fs1', title: 'Bitcoin Surges Past $75,000', summary: 'Bitcoin reaches new all-time high.', originalUrl: 'https://www.reuters.com', category: 'finance' },
+  { _id: 'fs2', title: 'Real Madrid Advances to Final', summary: 'Late goal secures victory.', originalUrl: 'https://www.bbc.com/sport', category: 'sports' },
+  { _id: 'fs3', title: 'Fed Signals Rate Cuts', summary: 'Powell hints at easing.', originalUrl: 'https://www.bloomberg.com', category: 'finance' },
+  { _id: 'fs4', title: 'Lakers Take Game 1', summary: 'LeBron scores 35 points.', originalUrl: 'https://www.espn.com', category: 'sports' },
 ];
+
+function makeAbsoluteUrl(url, base) {
+  try {
+    return new URL(url, base).href;
+  } catch {
+    return url;
+  }
+}
 
 export default function NewsArticle() {
   const router = useRouter();
@@ -26,7 +33,6 @@ export default function NewsArticle() {
     const fetchArticle = async () => {
       try {
         const originalUrl = decodeURIComponent(id);
-        // Try database first
         const dbRes = await fetch(`/api/news?id=${encodeURIComponent(originalUrl)}`);
         let articleData = null;
         let imageUrl = '';
@@ -35,7 +41,6 @@ export default function NewsArticle() {
           articleData = await dbRes.json();
           imageUrl = articleData.imageUrl;
         } else {
-          // Fallback: extract summary and image from original page via proxy
           const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
           const proxyRes = await fetch(proxyUrl);
           const html = await proxyRes.text();
@@ -43,24 +48,41 @@ export default function NewsArticle() {
           const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
           let title = titleMatch ? titleMatch[1].replace(/&#?\w+;/g, '').trim() : 'Article';
           
+          let summary = '';
           const descMatch = html.match(/<meta name="description" content="([^"]*)"/i);
-          let summary = descMatch ? descMatch[1] : '';
+          if (descMatch) summary = descMatch[1];
+          if (!summary) {
+            const ogDescMatch = html.match(/<meta property="og:description" content="([^"]*)"/i);
+            if (ogDescMatch) summary = ogDescMatch[1];
+          }
           if (!summary) {
             const pMatch = html.match(/<p[^>]*>([^<]+)<\/p>/i);
             summary = pMatch ? pMatch[1].substring(0, 500) : 'Read the full article on the original website.';
           }
           
           const ogImageMatch = html.match(/<meta property="og:image" content="([^"]*)"/i);
-          if (ogImageMatch) imageUrl = ogImageMatch[1];
+          if (ogImageMatch) imageUrl = makeAbsoluteUrl(ogImageMatch[1], originalUrl);
           if (!imageUrl) {
             const twitterImageMatch = html.match(/<meta name="twitter:image" content="([^"]*)"/i);
-            if (twitterImageMatch) imageUrl = twitterImageMatch[1];
+            if (twitterImageMatch) imageUrl = makeAbsoluteUrl(twitterImageMatch[1], originalUrl);
+          }
+          if (!imageUrl) {
+            const imgMatches = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi);
+            if (imgMatches) {
+              for (let imgTag of imgMatches) {
+                const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
+                if (srcMatch) {
+                  imageUrl = makeAbsoluteUrl(srcMatch[1], originalUrl);
+                  break;
+                }
+              }
+            }
           }
           
           articleData = {
             originalUrl,
             title,
-            summary,
+            summary: summary.substring(0, 1000),
             source: new URL(originalUrl).hostname.replace('www.', ''),
             imageUrl: imageUrl || '',
             publishedAt: new Date(),
@@ -69,22 +91,16 @@ export default function NewsArticle() {
         }
         setArticle(articleData);
         
-        // Fetch suggestions from the same category
         try {
           const suggestionsRes = await fetch(`/api/news?category=${articleData.category || 'general'}&limit=6`);
           if (suggestionsRes.ok) {
             const suggestionsData = await suggestionsRes.json();
             const filtered = suggestionsData.filter(s => s.originalUrl !== articleData.originalUrl).slice(0, 4);
-            if (filtered.length > 0) {
-              setSuggestions(filtered);
-            } else {
-              setSuggestions(fallbackSuggestions);
-            }
+            setSuggestions(filtered.length ? filtered : fallbackSuggestions);
           } else {
             setSuggestions(fallbackSuggestions);
           }
         } catch (err) {
-          console.error('Suggestions error:', err);
           setSuggestions(fallbackSuggestions);
         }
       } catch (err) {
@@ -159,7 +175,6 @@ export default function NewsArticle() {
           </div>
         </article>
 
-        {/* Suggested articles section - always shows */}
         <div className="max-w-3xl mx-auto mt-10">
           <h3 className="text-xl font-bold text-white mb-4 border-l-4 border-blue-500 pl-3">You might also like</h3>
           <div className="grid md:grid-cols-2 gap-4">
