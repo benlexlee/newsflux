@@ -1,6 +1,65 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFullscreen } from '../../hooks/useFullscreen';
 
+// Sound effects using Web Audio API
+const playSound = (type) => {
+  try {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    if (type === 'jump') {
+      osc.type = 'sine';
+      osc.frequency.value = 523.25;
+      gain.gain.value = 0.15;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.3);
+      osc.stop(now + 0.3);
+    } else if (type === 'coin') {
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.value = 0.2;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.15);
+      osc.stop(now + 0.15);
+    } else if (type === 'shoot') {
+      osc.type = 'sawtooth';
+      osc.frequency.value = 660;
+      gain.gain.value = 0.1;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.2);
+      osc.stop(now + 0.2);
+    } else if (type === 'explosion') {
+      osc.type = 'sawtooth';
+      osc.frequency.value = 110;
+      gain.gain.value = 0.2;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.5);
+      osc.frequency.exponentialRampToValueAtTime(55, now + 0.5);
+      osc.stop(now + 0.5);
+    } else if (type === 'gameover') {
+      osc.type = 'sine';
+      osc.frequency.value = 220;
+      gain.gain.value = 0.15;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, now + 1.5);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 1.5);
+      osc.stop(now + 1.5);
+    } else if (type === 'powerup') {
+      osc.type = 'sine';
+      osc.frequency.value = 440;
+      gain.gain.value = 0.1;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.8);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.8);
+      osc.stop(now + 0.8);
+    }
+  } catch(e) { console.log('Audio not supported'); }
+};
+
 export default function EndlessRunner() {
   const canvasRef = useRef(null);
   const [score, setScore] = useState(0);
@@ -49,21 +108,6 @@ export default function EndlessRunner() {
       setHighScore(finalScore);
       localStorage.setItem('runnerHighScore', finalScore);
     }
-  };
-
-  const playSound = (type) => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-      osc.connect(gain); gain.connect(audioCtx.destination);
-      osc.type = 'sine';
-      if (type === 'jump') { osc.frequency.value=523.25; gain.gain.value=0.1; osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime+0.2); osc.stop(audioCtx.currentTime+0.2); }
-      else if (type === 'coin') { osc.frequency.value=880; gain.gain.value=0.15; osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime+0.1); osc.stop(audioCtx.currentTime+0.1); }
-      else if (type === 'hit') { osc.frequency.value=110; gain.gain.value=0.2; osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime+0.3); osc.stop(audioCtx.currentTime+0.3); }
-      else if (type === 'shoot') { osc.frequency.value=660; gain.gain.value=0.08; osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime+0.1); osc.stop(audioCtx.currentTime+0.1); }
-      else if (type === 'enemyShoot') { osc.frequency.value=330; gain.gain.value=0.08; osc.start(); gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime+0.15); osc.stop(audioCtx.currentTime+0.15); }
-    } catch(e) {}
   };
 
   const addParticle = (x, y) => {
@@ -135,7 +179,6 @@ export default function EndlessRunner() {
       if (!gameRunning) return;
       if (data.shootCooldown > 0) data.shootCooldown--;
 
-      // Player physics
       if (data.player.isJumping) {
         data.player.y += data.player.yVelocity;
         data.player.yVelocity += 0.8;
@@ -148,24 +191,19 @@ export default function EndlessRunner() {
         data.player.y = groundY - data.player.height;
       }
 
-      // Parallax clouds and birds
       for (let c of data.clouds) { c.x -= c.speed; if (c.x + c.size*2 < 0) c.x = canvas.width + c.size*2; }
       for (let b of data.birds) { b.x -= b.speed; b.flap = (b.flap+0.1)%(Math.PI*2); if (b.x+20<0) b.x = canvas.width+20; }
 
-      // Spawn obstacles
       if (data.frame % 85 === 0 && Math.random() > 0.5) {
         data.obstacles.push({ x: canvas.width, y: groundY - 25, width: 20, height: 25 });
       }
-      // Spawn coins
       if (data.frame % 35 === 0 && Math.random() > 0.6) {
         data.coins.push({ x: canvas.width, y: groundY - 40, width: 12, height: 12 });
       }
-      // Spawn enemy
       if (data.frame % 180 === 0 && Math.random() > 0.7) {
         data.enemies.push({ x: canvas.width, y: groundY - 35, width: 25, height: 30, shootCooldown: 0 });
       }
 
-      // Update enemies
       for (let i=0; i<data.enemies.length; i++) {
         const e = data.enemies[i];
         e.x -= 4;
@@ -174,30 +212,28 @@ export default function EndlessRunner() {
         if (e.shootCooldown === 0 && Math.random() < 0.02) {
           data.enemyBullets.push({ x: e.x, y: e.y+15, width: 8, height: 4, vx: -5 });
           e.shootCooldown = 60;
-          playSound('enemyShoot');
+          playSound('shoot');
         }
         if (data.player.x < e.x+e.width && data.player.x+data.player.width > e.x &&
             data.player.y < e.y+e.height && data.player.y+data.player.height > e.y) {
-          setGameOver(true); setGameRunning(false); playSound('hit'); setJustFinished(true);
+          setGameOver(true); setGameRunning(false); playSound('explosion'); setJustFinished(true);
           if (data.score > highScore) setHighScore(data.score);
           return;
         }
       }
 
-      // Enemy bullets
       for (let i=0; i<data.enemyBullets.length; i++) {
         const b = data.enemyBullets[i];
         b.x += b.vx;
         if (b.x + b.width < 0 || b.x > canvas.width) { data.enemyBullets.splice(i,1); i--; continue; }
         if (data.player.x < b.x+b.width && data.player.x+data.player.width > b.x &&
             data.player.y < b.y+b.height && data.player.y+data.player.height > b.y) {
-          setGameOver(true); setGameRunning(false); playSound('hit'); setJustFinished(true);
+          setGameOver(true); setGameRunning(false); playSound('explosion'); setJustFinished(true);
           if (data.score > highScore) setHighScore(data.score);
           return;
         }
       }
 
-      // Player bullets
       for (let i=0; i<data.playerBullets.length; i++) {
         const b = data.playerBullets[i];
         b.x += b.vx;
@@ -216,20 +252,18 @@ export default function EndlessRunner() {
         }
       }
 
-      // Obstacles
       for (let i=0; i<data.obstacles.length; i++) {
         data.obstacles[i].x -= 6;
         if (data.obstacles[i].x + data.obstacles[i].width < 0) { data.obstacles.splice(i,1); i--; continue; }
         const obs = data.obstacles[i];
         if (data.player.x < obs.x+obs.width && data.player.x+data.player.width > obs.x &&
             data.player.y < obs.y+obs.height && data.player.y+data.player.height > obs.y) {
-          setGameOver(true); setGameRunning(false); playSound('hit'); setJustFinished(true);
+          setGameOver(true); setGameRunning(false); playSound('explosion'); setJustFinished(true);
           if (data.score > highScore) setHighScore(data.score);
           return;
         }
       }
 
-      // Coins
       for (let i=0; i<data.coins.length; i++) {
         data.coins[i].x -= 6;
         if (data.coins[i].x + data.coins[i].width < 0) { data.coins.splice(i,1); i--; continue; }
@@ -245,7 +279,6 @@ export default function EndlessRunner() {
         }
       }
 
-      // Particles
       for (let i=0; i<data.particles.length; i++) {
         data.particles[i].x += data.particles[i].vx;
         data.particles[i].y += data.particles[i].vy;
@@ -257,14 +290,10 @@ export default function EndlessRunner() {
 
     function draw() {
       ctx.clearRect(0,0,canvas.width,canvas.height);
-      // Sky gradient
       const grad = ctx.createLinearGradient(0,0,0,groundY);
       grad.addColorStop(0,'#0a0a2a'); grad.addColorStop(1,'#1a2a4a');
       ctx.fillStyle = grad; ctx.fillRect(0,0,canvas.width,groundY);
-      // Stars
-      ctx.fillStyle = 'white';
-      for (let i=0;i<50;i++) { if (Math.sin(Date.now()*0.001 + i)*0.5+0.5 > 0.7) ctx.fillRect(i*37%canvas.width, i*13%80, 2,2); }
-      // Clouds
+      
       ctx.fillStyle = 'rgba(255,255,255,0.15)';
       for (let c of data.clouds) {
         ctx.beginPath(); ctx.arc(c.x,c.y,c.size*0.6,0,2*Math.PI);
@@ -272,52 +301,42 @@ export default function EndlessRunner() {
         ctx.arc(c.x-c.size*0.4,c.y-c.size*0.2,c.size*0.5,0,2*Math.PI);
         ctx.fill();
       }
-      // Birds
       ctx.fillStyle = '#444';
       for (let b of data.birds) {
         const wing = Math.sin(b.flap)*10;
         ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-15,b.y+5+wing); ctx.lineTo(b.x-8,b.y); ctx.lineTo(b.x-15,b.y-5-wing); ctx.fill();
       }
-      // Ground with gradient
       const gradGround = ctx.createLinearGradient(0,groundY,0,canvas.height);
       gradGround.addColorStop(0,'#2d5a1e'); gradGround.addColorStop(1,'#1a3a10');
       ctx.fillStyle = gradGround; ctx.fillRect(0, groundY, canvas.width, canvas.height-groundY);
       ctx.fillStyle = '#8B5A2B'; ctx.fillRect(0, groundY, canvas.width, 5);
-      // Grass patches
       ctx.fillStyle = '#4CAF50';
       for (let g of data.grassPatches) { ctx.fillRect(g.x % canvas.width, groundY-6, g.size, 6); }
-      // Coins with glow
       for (let coin of data.coins) {
         ctx.shadowBlur = 10; ctx.shadowColor = 'gold';
         ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(coin.x+6, coin.y+6, 8, 0, 2*Math.PI); ctx.fill();
         ctx.fillStyle = '#FFA500'; ctx.beginPath(); ctx.arc(coin.x+6, coin.y+6, 4, 0, 2*Math.PI); ctx.fill();
         ctx.shadowBlur = 0;
       }
-      // Obstacles (spikes)
       ctx.fillStyle = '#8B0000';
       for (let obs of data.obstacles) {
         ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
         ctx.fillStyle = '#5a0000'; ctx.fillRect(obs.x+5, obs.y-5, obs.width-10, 5);
         ctx.fillStyle = '#8B0000';
       }
-      // Enemies with glowing eyes
       for (let e of data.enemies) {
         ctx.fillStyle = '#6a0dad'; ctx.fillRect(e.x, e.y, e.width, e.height);
         ctx.fillStyle = '#ffcc00'; ctx.fillRect(e.x+5, e.y+10, 5, 5); ctx.fillRect(e.x+15, e.y+10, 5, 5);
       }
-      // Bullets
       ctx.fillStyle = '#ff6600';
       for (let b of data.enemyBullets) ctx.fillRect(b.x, b.y, b.width, b.height);
       ctx.fillStyle = '#00ff00';
       for (let b of data.playerBullets) ctx.fillRect(b.x, b.y, b.width, b.height);
-      // Particles
       for (let p of data.particles) { ctx.fillStyle = `rgba(255,200,0,${p.life/20})`; ctx.fillRect(p.x, p.y, 3, 3); }
-      // Player with trail
       ctx.fillStyle = '#00bfff'; ctx.fillRect(data.player.x, data.player.y, data.player.width, data.player.height);
       ctx.fillStyle = '#0088cc'; ctx.fillRect(data.player.x+5, data.player.y-10, 20, 10);
       ctx.fillStyle = 'white'; ctx.fillRect(data.player.x+20, data.player.y+8, 5, 5); ctx.fillRect(data.player.x+8, data.player.y+8, 5, 5);
       ctx.fillStyle = '#ff4444'; ctx.fillRect(data.player.x-8, data.player.y+10, 8, 15);
-      // UI
       ctx.fillStyle = 'white'; ctx.font = 'bold 24px Arial'; ctx.fillText(`🏆 ${data.score}`, 10, 40);
       ctx.fillStyle = 'gold'; ctx.font = 'bold 16px Arial'; ctx.fillText(`High: ${highScore}`, 10, 70);
       ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.fillText('← Tap left to Jump | Tap right to Shoot →', canvas.width/2-150, 25);
@@ -329,7 +348,6 @@ export default function EndlessRunner() {
       cancelAnimationFrame(animId);
       window.removeEventListener('keydown', handleKey);
       canvas.removeEventListener('touchstart', handleTouch);
-      window.removeEventListener('click', () => {});
     };
   }, [gameRunning, highScore]);
 
@@ -376,6 +394,15 @@ export default function EndlessRunner() {
         </div>
       )}
       <canvas ref={canvasRef} width={800} height={300} className="border border-gray-600 rounded-lg shadow-md w-full" style={{ maxWidth: '100%', height: 'auto' }} />
+      
+      {/* Banner ad space below the game */}
+      <div className="mt-4 p-2 bg-gray-800 rounded-lg text-center text-gray-400 text-sm border border-gray-700">
+        <span className="text-xs text-gray-500">ADVERTISEMENT</span>
+        <div className="mt-1">
+          <!-- Your banner ad code here (e.g., Google AdSense) -->
+          <div className="bg-gray-700 h-20 flex items-center justify-center rounded">Banner Ad Space</div>
+        </div>
+      </div>
     </div>
   );
 }
