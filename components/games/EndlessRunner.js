@@ -48,14 +48,6 @@ const playSound = (type) => {
       gain.gain.exponentialRampToValueAtTime(0.00001, now + 1.5);
       osc.frequency.exponentialRampToValueAtTime(110, now + 1.5);
       osc.stop(now + 1.5);
-    } else if (type === 'powerup') {
-      osc.type = 'sine';
-      osc.frequency.value = 440;
-      gain.gain.value = 0.1;
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.00001, now + 0.8);
-      osc.frequency.exponentialRampToValueAtTime(880, now + 0.8);
-      osc.stop(now + 0.8);
     }
   } catch(e) { console.log('Audio not supported'); }
 };
@@ -399,7 +391,7 @@ export default function EndlessRunner() {
       <div className="mt-4 p-2 bg-gray-800 rounded-lg text-center text-gray-400 text-sm border border-gray-700">
         <span className="text-xs text-gray-500">ADVERTISEMENT</span>
         <div className="mt-1">
-          <!-- Your banner ad code here (e.g., Google AdSense) -->
+          {/* Your banner ad code here (e.g., Google AdSense) */}
           <div className="bg-gray-700 h-20 flex items-center justify-center rounded">Banner Ad Space</div>
         </div>
       </div>
