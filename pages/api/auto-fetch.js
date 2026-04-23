@@ -1,62 +1,86 @@
 import dbConnect, { News } from '../../lib/db';
+import Parser from 'rss-parser';
+
+const parser = new Parser();
 
 export default async function handler(req, res) {
-  await dbConnect();
-  
-  const apiKey = process.env.NEWS_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'NEWS_API_KEY not set in environment variables' });
+  try {
+    await dbConnect();
+  } catch (err) {
+    console.error('DB connection error:', err);
+    return res.status(500).json({ error: 'Database connection failed' });
   }
-
-  const categories = [
-    { name: 'business', ourCategory: 'finance' },
-    { name: 'sports', ourCategory: 'sports' },
-    { name: 'technology', ourCategory: 'general' },
-    { name: 'science', ourCategory: 'general' },
+  
+  const feedUrls = [
+    { url: 'https://feeds.bloomberg.com/markets/news.rss', category: 'finance' },
+    { url: 'https://feeds.reuters.com/reuters/businessNews', category: 'finance' },
+    { url: 'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml', category: 'finance' },
+    { url: 'https://www.espn.com/espn/rss/news', category: 'sports' },
+    { url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'sports' },
+    { url: 'https://sports.yahoo.com/top/rss.xml', category: 'sports' },
   ];
   
   let totalArticles = 0;
+  const errors = [];
 
-  for (const cat of categories) {
-    const url = `https://newsapi.org/v2/top-headlines?country=us&category=${cat.name}&pageSize=25&apiKey=${apiKey}`;
+  for (const feed of feedUrls) {
     try {
-      const response = await fetch(url);
-      const data = await response.json();
+      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`;
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        errors.push(`${feed.url}: HTTP ${response.status}`);
+        continue;
+      }
+      const xml = await response.text();
+      const parsed = await parser.parseString(xml);
       
-      if (data.status === 'ok' && data.articles) {
-        for (const article of data.articles) {
-          if (!article.url || !article.title) continue;
+      if (parsed.items) {
+        for (const item of parsed.items.slice(0, 10)) {
+          if (!item.link || !item.title) continue;
           
-          const result = await News.findOneAndUpdate(
-            { originalUrl: article.url },
-            {
-              originalUrl: article.url,
-              title: article.title || 'No title',
-              summary: article.description || article.content?.substring(0, 500) || 'Read more...',
-              source: article.source?.name || 'Unknown',
-              category: cat.ourCategory,
-              imageUrl: article.urlToImage || '',
-              publishedAt: article.publishedAt ? new Date(article.publishedAt) : new Date(),
-              updatedAt: new Date(),
-            },
-            { upsert: true, new: true }
-          );
-          totalArticles++;
+          const summary = (item.contentSnippet || item.description || '').substring(0, 800);
+          
+          try {
+            await News.findOneAndUpdate(
+              { originalUrl: item.link },
+              {
+                originalUrl: item.link,
+                title: item.title || 'No title',
+                summary: summary || 'Read more...',
+                source: new URL(feed.url).hostname.replace('www.', ''),
+                category: feed.category,
+                imageUrl: item.enclosure?.url || '',
+                publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
+                updatedAt: new Date(),
+              },
+              { upsert: true }
+            );
+            totalArticles++;
+          } catch (err) {
+            errors.push(`DB error for ${item.link}: ${err.message}`);
+          }
         }
       }
     } catch (err) {
-      console.error(`Error fetching ${cat.name}:`, err);
+      errors.push(`${feed.url}: ${err.message}`);
     }
   }
 
-  // Also delete articles older than 7 days
+  // Delete articles older than 7 days
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-  const deleted = await News.deleteMany({ publishedAt: { $lt: oneWeekAgo } });
+  let deleted = 0;
+  try {
+    const result = await News.deleteMany({ publishedAt: { $lt: oneWeekAgo } });
+    deleted = result.deletedCount;
+  } catch (err) {
+    errors.push(`Delete error: ${err.message}`);
+  }
 
   res.status(200).json({ 
-    message: `Auto-fetched/updated ${totalArticles} articles, deleted ${deleted.deletedCount} old articles`,
+    message: `Fetched ${totalArticles} articles, deleted ${deleted} old articles`,
     total: totalArticles,
-    deleted: deleted.deletedCount
+    deleted: deleted,
+    errors: errors.length ? errors : undefined
   });
 }
