@@ -1,3 +1,23 @@
+:root {
+  --bg-gradient-start: #1a1a2e;
+  --bg-gradient-end: #16213e;
+  --text-primary: #ffffff;
+  --card-bg: rgba(31, 41, 55, 0.8);
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root.light {
+  --bg-gradient-start: #f0f4f8;
+  --bg-gradient-end: #e2e8f0;
+  --text-primary: #1a202c;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --border-color: rgba(0, 0, 0, 0.1);
+}
+
+body {
+  background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+  color: var(--text-primary);
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -93,4 +113,45 @@ label {
 
 button {
   @apply transition-all duration-200;
+}
+
+/* Light Mode Styles */
+body.light-mode {
+  background: linear-gradient(135deg, #f0f4f8, #e2e8f0);
+  color: #1a202c;
+}
+
+body.light-mode .bg-gray-800,
+body.light-mode .bg-gray-900,
+body.light-mode .bg-gray-700 {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #1a202c !important;
+}
+
+body.light-mode .text-white,
+body.light-mode .text-gray-300,
+body.light-mode .text-gray-400 {
+  color: #1a202c !important;
+}
+
+body.light-mode .border-gray-700,
+body.light-mode .border-gray-600 {
+  border-color: #e2e8f0 !important;
+}
+
+body.light-mode .glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: #e2e8f0;
+}
+
+body.light-mode .news-card,
+body.light-mode .bg-gray-800\/80 {
+  background: #ffffff !important;
+  color: #1a202c !important;
+}
+
+body.light-mode .bg-gray-900\/50,
+body.light-mode .bg-gray-900\/80 {
+  background: #ffffff !important;
 }
