@@ -1,64 +1,62 @@
 import dbConnect, { News } from '../../lib/db';
-import Parser from 'rss-parser';
-
-const parser = new Parser();
-
-const feedUrls = {
-  finance: [
-    'https://feeds.bloomberg.com/markets/news.rss',
-    'https://feeds.reuters.com/reuters/businessNews',
-    'https://rss.nytimes.com/services/xml/rss/nyt/Business.xml',
-  ],
-  sports: [
-    'https://www.espn.com/espn/rss/news',
-    'https://feeds.bbci.co.uk/sport/rss.xml',
-    'https://sports.yahoo.com/top/rss.xml',
-  ],
-};
 
 export default async function handler(req, res) {
-  // Allow requests without secret for testing (remove later)
-  const { secret } = req.query;
-  const expectedSecret = process.env.CRON_SECRET;
+  await dbConnect();
   
-  // If secret is provided and matches, or if no secret expected (dev), proceed
-  if (expectedSecret && secret !== expectedSecret) {
-    console.log(`Secret mismatch: got "${secret}", expected "${expectedSecret}"`);
-    return res.status(401).json({ error: 'Unauthorized' });
+  const apiKey = process.env.NEWS_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'NEWS_API_KEY not set in environment variables' });
   }
 
-  await dbConnect();
-  const allArticles = [];
+  const categories = [
+    { name: 'business', ourCategory: 'finance' },
+    { name: 'sports', ourCategory: 'sports' },
+    { name: 'technology', ourCategory: 'general' },
+    { name: 'science', ourCategory: 'general' },
+  ];
+  
+  let totalArticles = 0;
 
-  for (const url of [...feedUrls.finance, ...feedUrls.sports]) {
+  for (const cat of categories) {
+    const url = `https://newsapi.org/v2/top-headlines?country=us&category=${cat.name}&pageSize=25&apiKey=${apiKey}`;
     try {
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-      const response = await fetch(proxyUrl);
-      const xml = await response.text();
-      const feed = await parser.parseString(xml);
-      const articles = feed.items.slice(0, 10).map(item => ({
-        originalUrl: item.link,
-        title: item.title,
-        summary: (item.contentSnippet || item.description || '').substring(0, 1000),
-        source: new URL(url).hostname.replace('www.', ''),
-        category: url.includes('bloomberg') || url.includes('reuters') || url.includes('nytimes') ? 'finance' : 'sports',
-        imageUrl: item.enclosure?.url || '',
-        publishedAt: item.pubDate ? new Date(item.pubDate) : new Date(),
-      }));
-      allArticles.push(...articles);
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === 'ok' && data.articles) {
+        for (const article of data.articles) {
+          if (!article.url || !article.title) continue;
+          
+          const result = await News.findOneAndUpdate(
+            { originalUrl: article.url },
+            {
+              originalUrl: article.url,
+              title: article.title || 'No title',
+              summary: article.description || article.content?.substring(0, 500) || 'Read more...',
+              source: article.source?.name || 'Unknown',
+              category: cat.ourCategory,
+              imageUrl: article.urlToImage || '',
+              publishedAt: article.publishedAt ? new Date(article.publishedAt) : new Date(),
+              updatedAt: new Date(),
+            },
+            { upsert: true, new: true }
+          );
+          totalArticles++;
+        }
+      }
     } catch (err) {
-      console.error(`Auto-fetch error for ${url}:`, err);
+      console.error(`Error fetching ${cat.name}:`, err);
     }
   }
 
-  // Deduplicate
-  const unique = {};
-  for (const a of allArticles) unique[a.originalUrl] = a;
-  const final = Object.values(unique);
+  // Also delete articles older than 7 days
+  const oneWeekAgo = new Date();
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  const deleted = await News.deleteMany({ publishedAt: { $lt: oneWeekAgo } });
 
-  for (const article of final) {
-    await News.findOneAndUpdate({ originalUrl: article.originalUrl }, article, { upsert: true });
-  }
-
-  res.status(200).json({ message: `Auto-fetched and stored ${final.length} articles` });
+  res.status(200).json({ 
+    message: `Auto-fetched/updated ${totalArticles} articles, deleted ${deleted.deletedCount} old articles`,
+    total: totalArticles,
+    deleted: deleted.deletedCount
+  });
 }
