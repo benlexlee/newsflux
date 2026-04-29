@@ -7,7 +7,7 @@ module.exports = {
   theme: {
     extend: {
       animation: {
-        ticker: 'ticker 40s linear infinite',
+        ticker: 'ticker 30s linear infinite',
       },
       keyframes: {
         ticker: {

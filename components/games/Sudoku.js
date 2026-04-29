@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { sounds } from '../../lib/sounds';
+import { getAdCodes } from '../../lib/ads';
+import GameInterstitialAd from '../ads/GameInterstitialAd';
 
 function generateBoard() {
   const board = Array(9).fill().map(()=>Array(9).fill(null));
@@ -35,6 +37,8 @@ export default function Sudoku() {
   const [gameStarted, setGameStarted] = useState(false);
   const [globalScores, setGlobalScores] = useState([]);
   const [showGlobal, setShowGlobal] = useState(false);
+  const [showReplayAd, setShowReplayAd] = useState(false);
+  const [adCode, setAdCode] = useState('');
   const timerRef = useRef(null);
   const { elementRef, toggleFullscreen } = useFullscreen();
 
@@ -45,6 +49,7 @@ export default function Sudoku() {
     if (savedLeaderboard) setLeaderboard(JSON.parse(savedLeaderboard));
     setBoard(generateBoard());
     fetchGlobalScores();
+    getAdCodes().then(codes => setAdCode(codes.interstitialAdCode));
   }, []);
 
   const fetchGlobalScores = async () => {
@@ -52,7 +57,7 @@ export default function Sudoku() {
       const res = await fetch('/api/scores?game=sudoku&limit=10');
       const data = await res.json();
       setGlobalScores(data);
-    } catch (err) { console.error(err); }
+    } catch (err) {}
   };
 
   useEffect(() => {
@@ -105,7 +110,7 @@ export default function Sudoku() {
       setJustCompleted(false);
       setNickname('');
       setMessage('');
-    } catch (err) { console.error(err); }
+    } catch (err) {}
   };
 
   const handleCellChange = (row, col, val) => {
@@ -114,7 +119,7 @@ export default function Sudoku() {
     const newBoard = board.map(r=>[...r]);
     const num = val === '' ? null : parseInt(val);
     if (num && !isValid(board, row, col, num)) {
-      setMessage('Invalid move! Number already in row/column/box.');
+      setMessage('Invalid move!');
       setTimeout(() => setMessage(''), 1500);
       return;
     }
@@ -134,10 +139,24 @@ export default function Sudoku() {
     setMessage('');
   };
 
+  const handlePlayAgain = () => {
+    if (adCode) {
+      setShowReplayAd(true);
+    } else {
+      resetGame();
+    }
+  };
+
+  const onAdClose = () => {
+    setShowReplayAd(false);
+    resetGame();
+  };
+
   if (!board) return <div className="text-center py-10">Loading puzzle...</div>;
 
   return (
     <div ref={elementRef} className="w-full h-full min-h-[500px] bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-4">
+      {showReplayAd && <GameInterstitialAd adCode={adCode} onClose={onAdClose} />}
       <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
         <h2 className="text-2xl font-bold text-green-400">🔢 Sudoku</h2>
         <div className="flex gap-2">
@@ -150,36 +169,34 @@ export default function Sudoku() {
       </div>
       {showInstructions && (
         <div className="bg-gray-700 p-4 rounded-lg mb-4 text-sm">
-          <h3 className="font-bold mb-2 text-green-300">How to Play Sudoku</h3>
-          <ul className="list-disc list-inside"><li>Fill empty cells with numbers 1-9.</li><li>Each row, column, and 3x3 box must contain all numbers 1-9 without repeats.</li><li>Timer starts on first entry.</li><li>Submit your time to the global leaderboard!</li></ul>
+          <h3 className="font-bold mb-2">How to Play</h3>
+          <ul><li>Fill empty cells with 1-9</li><li>Each row, column, 3x3 box must have all numbers</li><li>Timer starts on first entry</li></ul>
         </div>
       )}
       {showLeaderboard && (
         <div className="bg-gray-700 p-4 rounded-lg mb-4 shadow">
-          <h3 className="font-bold text-lg mb-2 text-green-300">🏆 Your Fastest Times</h3>
+          <h3 className="font-bold text-lg">🏆 Your Fastest Times</h3>
           <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Nickname</th><th>Time (sec)</th><th>Date</th></tr></thead><tbody>
-            {leaderboard.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td className="text-center">{idx+1}</td><td>{entry.nickname}</td><td className="text-center">{entry.time.toFixed(1)}</td><td className="text-center text-xs">{entry.date}</td></tr>))}
-            {leaderboard.length===0 && <tr><td colSpan="4" className="text-center">No times yet. Solve a puzzle!</td></tr>}
+            {leaderboard.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td>{idx+1}</td><td>{entry.nickname}</td><td>{entry.time.toFixed(1)}</td><td>{entry.date}</td></tr>))}
           </tbody></table>
           <button onClick={()=>setShowLeaderboard(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
         </div>
       )}
       {showGlobal && (
         <div className="bg-gray-700 p-4 rounded-lg mb-4 shadow">
-          <h3 className="font-bold text-lg mb-2 text-cyan-300">🌍 Global Leaderboard (All Players)</h3>
+          <h3 className="font-bold text-lg">🌍 Global Leaderboard</h3>
           <table className="w-full text-sm"><thead><tr><th>Rank</th><th>Player</th><th>Time (sec)</th><th>Date</th></tr></thead><tbody>
-            {globalScores.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td className="text-center">{idx+1}</td><td>{entry.nickname}</td><td className="text-center">{entry.time?.toFixed(1)}</td><td className="text-center text-xs">{new Date(entry.date).toLocaleDateString()}</td></tr>))}
-            {globalScores.length===0 && <tr><td colSpan="4" className="text-center">No global scores yet. Be the first!</td></tr>}
+            {globalScores.map((entry, idx) => (<tr key={idx} className={idx===0?'bg-yellow-800':''}><td>{idx+1}</td><td>{entry.nickname}</td><td>{entry.time?.toFixed(1)}</td><td>{new Date(entry.date).toLocaleDateString()}</td></tr>))}
           </tbody></table>
           <button onClick={()=>setShowGlobal(false)} className="mt-2 bg-gray-500 px-2 py-1 rounded text-sm">Close</button>
         </div>
       )}
-      <div className="text-center text-sm mb-2">⏱️ Time: {time.toFixed(1)} sec {bestTime && <span className="text-green-400 ml-2">🏆 Best: {bestTime.toFixed(1)}</span>}</div>
-      {message && <div className="mb-4 p-3 bg-green-800 text-green-200 rounded-lg text-center">{message}</div>}
+      <div className="text-center text-sm mb-2">⏱️ Time: {time.toFixed(1)} sec {bestTime && <span className="text-green-400">🏆 Best: {bestTime.toFixed(1)}</span>}</div>
+      {message && <div className="mb-4 p-3 bg-green-800 rounded-lg text-center">{message}</div>}
       {justCompleted && (
         <div className="mb-4 p-4 bg-yellow-800 rounded-lg text-center">
           <p className="text-green-300 font-bold text-xl">You solved it in {time.toFixed(1)} seconds! 🎉</p>
-          <div className="mt-2"><input type="text" value={nickname} onChange={(e)=>setNickname(e.target.value)} className="border rounded px-2 py-1 bg-gray-700 text-white" placeholder="Your name" />
+          <div className="mt-2"><input value={nickname} onChange={e=>setNickname(e.target.value)} className="border rounded px-2 py-1 bg-gray-700 text-white" placeholder="Your name" />
           <button onClick={submitLocalScore} className="ml-2 bg-blue-600 px-3 py-1 rounded">Save Local</button>
           <button onClick={submitGlobalScore} className="ml-2 bg-cyan-600 px-3 py-1 rounded">🌍 Save Global</button>
           <button onClick={()=>setJustCompleted(false)} className="ml-2 bg-gray-500 px-3 py-1 rounded">Skip</button></div>
@@ -199,6 +216,9 @@ export default function Sudoku() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="mt-4 text-center">
+        <button onClick={handlePlayAgain} className="bg-blue-600 text-white px-4 py-2 rounded">Play Again</button>
       </div>
     </div>
   );
