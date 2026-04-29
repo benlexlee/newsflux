@@ -21,20 +21,10 @@ export default function AdManager({ position }) {
     loadAds();
   }, []);
 
-  if (position === 'video') {
-    return <VideoAd adCode={adCodes.videoAdCode} />;
-  }
-  if (position === 'interstitial') {
-    return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
-  }
-  if (position === 'top') {
-    return <BannerAd adCode={adCodes.topBannerCode} className="mb-4" />;
-  }
-  if (position === 'middle') {
-    return <BannerAd adCode={adCodes.middleBannerCode} className="my-6" />;
-  }
-  if (position === 'bottom') {
-    return <BannerAd adCode={adCodes.bottomBannerCode} className="mt-6" />;
-  }
+  if (position === 'video') return <VideoAd adCode={adCodes.videoAdCode} />;
+  if (position === 'interstitial') return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
+  if (position === 'top') return <BannerAd adCode={adCodes.topBannerCode} className="mb-4" />;
+  if (position === 'middle') return <BannerAd adCode={adCodes.middleBannerCode} className="my-6" />;
+  if (position === 'bottom') return <BannerAd adCode={adCodes.bottomBannerCode} className="mt-6" />;
   return null;
 }

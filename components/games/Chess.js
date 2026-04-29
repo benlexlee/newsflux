@@ -1,3 +1,5 @@
+'use client';
+// rest of your code...
 import { useState, useEffect, useRef } from 'react';
 import { useFullscreen } from '../../hooks/useFullscreen';
 import { sounds } from '../../lib/sounds';
