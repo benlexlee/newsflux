@@ -1,7 +1,5 @@
 'use client';
 import { useState, useEffect } from 'react';
-// ... rest unchanged
-import { useState, useEffect } from 'react';
 import BannerAd from './BannerAd';
 import VideoAd from './VideoAd';
 import InterstitialAd from './InterstitialAd';
