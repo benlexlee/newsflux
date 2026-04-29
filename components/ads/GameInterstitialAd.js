@@ -1,31 +1,30 @@
 'use client';
 import { useState, useEffect } from 'react';
-// ...
-import { useState, useEffect } from 'react';
 
 export default function GameInterstitialAd({ adCode, onClose }) {
   const [countdown, setCountdown] = useState(3);
-  const [canClose, setCanClose] = useState(false);
 
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
       return () => clearTimeout(timer);
-    } else {
-      setCanClose(true);
     }
   }, [countdown]);
 
   if (!adCode) {
-    // No ad code, just call onClose immediately
+    // No ad code, just close immediately
     onClose();
     return null;
   }
 
+  const canClose = countdown === 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
       <div className="relative bg-gray-900 rounded-lg p-6 max-w-2xl w-full">
-        <div className="text-center text-white mb-2">Video ad - closes in {countdown}s</div>
+        <div className="text-center text-white mb-2">
+          {canClose ? 'Ad finished – you may continue' : `Ad closes in ${countdown}s`}
+        </div>
         <div dangerouslySetInnerHTML={{ __html: adCode }} />
         {canClose && (
           <button
