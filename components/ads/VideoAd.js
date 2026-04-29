@@ -1,3 +1,7 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { hasVideoAdBeenWatched, markVideoAdWatched } from '../../lib/ads';
+// ... rest unchanged
 import { useState, useEffect } from 'react';
 
 export default function VideoAd({ adCode }) {

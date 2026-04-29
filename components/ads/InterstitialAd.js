@@ -1,3 +1,7 @@
+'use client';
+import { useState, useEffect } from 'react';
+import { shouldShowInterstitial, markInterstitialShown } from '../../lib/ads';
+// ... rest unchanged
 import { useState, useEffect } from 'react';
 import { shouldShowInterstitial, markInterstitialShown } from '../../lib/ads';
 
