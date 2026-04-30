@@ -1,39 +1,57 @@
-/* Light mode styles */
-html.light body {
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    color: #ffffff;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl shadow-xl;
+  }
+  .news-card {
+    @apply bg-gray-800/80 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all hover:-translate-y-1;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+  }
+}
+
+/* Light mode (applied via JavaScript) */
+.light body {
   background: linear-gradient(135deg, #f0f4f8, #e2e8f0) !important;
   color: #1a202c !important;
 }
 
-html.light .bg-gray-900,
-html.light .bg-gray-800,
-html.light .bg-gray-700,
-html.light .bg-gray-900/50,
-html.light .bg-gray-900/80,
-html.light .glass-card {
+.light .glass-card,
+.light .bg-gray-800,
+.light .bg-gray-900,
+.light .bg-gray-700,
+.light .bg-gray-900\/50 {
   background-color: #ffffff !important;
   color: #1a202c !important;
   border-color: #e2e8f0 !important;
 }
 
-html.light .text-white,
-html.light .text-gray-300,
-html.light .text-gray-400 {
+.light .text-white,
+.light .text-gray-300,
+.light .text-gray-400 {
   color: #1a202c !important;
 }
 
-html.light .border-gray-700,
-html.light .border-gray-600 {
-  border-color: #e2e8f0 !important;
-}
-
-html.light .news-card {
+.light .news-card {
   background: white !important;
-  color: #1a202c !important;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-}
-
-html.light .bg-black\/40,
-html.light .bg-black\/80 {
-  background-color: rgba(255,255,255,0.9) !important;
   color: #1a202c !important;
 }
