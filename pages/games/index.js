@@ -7,16 +7,18 @@ import SideAd from '../../components/ads/SideAd';
 import Chess from '../../components/games/Chess';
 import Sudoku from '../../components/games/Sudoku';
 import EndlessRunner from '../../components/games/EndlessRunner';
+import SpaceShooter from '../../components/games/SpaceShooter';
 
 const GAMES = {
-  chess: { name: 'Chess', icon: '♔', color: 'from-amber-600 to-orange-600', component: Chess },
-  sudoku: { name: 'Sudoku', icon: '🔢', color: 'from-green-600 to-emerald-600', component: Sudoku },
-  runner: { name: 'Endless Runner', icon: '🏃', color: 'from-red-600 to-pink-600', component: EndlessRunner },
+  chess: { name: 'Chess', icon: '♔', component: Chess },
+  sudoku: { name: 'Sudoku', icon: '🔢', component: Sudoku },
+  runner: { name: 'Endless Runner', icon: '🏃', component: EndlessRunner },
+  shooter: { name: 'Space Shooter', icon: '🚀', component: SpaceShooter },
 };
 
 export default function GamesPage() {
-  const [activeGame, setActiveGame] = useState('chess');
-  const ActiveGameComponent = GAMES[activeGame].component;
+  const [active, setActive] = useState('chess');
+  const Component = GAMES[active].component;
 
   return (
     <>
@@ -24,39 +26,25 @@ export default function GamesPage() {
       <Header />
       <AdManager position="video" />
       <AdManager position="interstitial" />
-      <main className="container mx-auto px-4 py-8">
-        <AdManager position="top" />
-        <div className="flex flex-col lg:flex-row gap-8">
+      <main className="container mx-auto px-4 py-6">
+        <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1">
-            <div className="flex flex-wrap gap-3 mb-8">
-              {Object.entries(GAMES).map(([key, game]) => (
+            <div className="flex flex-wrap gap-2 mb-6 border-b pb-2">
+              {Object.entries(GAMES).map(([key, g]) => (
                 <button
                   key={key}
-                  onClick={() => setActiveGame(key)}
-                  className={`relative flex items-center gap-3 px-6 py-3 rounded-xl font-bold text-lg transition-all duration-300 ${
-                    activeGame === key
-                      ? `bg-gradient-to-r ${game.color} text-white shadow-lg scale-105`
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700 hover:scale-105'
-                  }`}
+                  onClick={() => setActive(key)}
+                  className={`px-4 py-2 rounded-lg ${active === key ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                 >
-                  <span className="text-2xl">{game.icon}</span>
-                  {game.name}
-                  {activeGame === key && (
-                    <span className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-8 h-1 bg-white rounded-full animate-pulse"></span>
-                  )}
+                  <span className="mr-1">{g.icon}</span> {g.name}
                 </button>
               ))}
             </div>
-            <div className="relative">
-              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-purple-600 rounded-2xl blur opacity-30 transition duration-1000"></div>
-              <div className="relative bg-gray-900/80 backdrop-blur-md rounded-2xl border border-white/10 p-6 shadow-2xl">
-                <ActiveGameComponent />
-              </div>
+            <div className="bg-gray-900/50 rounded-xl p-4">
+              <Component />
             </div>
           </div>
-          <div className="lg:w-80">
-            <SideAd />
-          </div>
+          <SideAd />
         </div>
         <AdManager position="bottom" />
       </main>
