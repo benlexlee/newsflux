@@ -11,26 +11,22 @@ export default function GameInterstitialAd({ adCode, onClose }) {
     }
   }, [countdown]);
 
+  const canClose = countdown === 0;
+
   if (!adCode) {
-    // No ad code, just close immediately
     onClose();
     return null;
   }
-
-  const canClose = countdown === 0;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
       <div className="relative bg-gray-900 rounded-lg p-6 max-w-2xl w-full">
         <div className="text-center text-white mb-2">
-          {canClose ? 'Ad finished – you may continue' : `Ad closes in ${countdown}s`}
+          {canClose ? 'Ad finished – continue to game' : `Video ad in ${countdown}s`}
         </div>
         <div dangerouslySetInnerHTML={{ __html: adCode }} />
         {canClose && (
-          <button
-            onClick={onClose}
-            className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-          >
+          <button onClick={onClose} className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
             Continue to Game
           </button>
         )}

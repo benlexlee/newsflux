@@ -1,15 +1,14 @@
 'use client';
-import { useState, useEffect } from 'react';
-// ...
 import { useCallback, useRef } from 'react';
 
 export function useFullscreen() {
   const elementRef = useRef(null);
+
   const toggleFullscreen = useCallback(() => {
     const elem = elementRef.current;
     if (!elem) return;
     if (!document.fullscreenElement) {
-      elem.requestFullscreen().catch(console.error);
+      elem.requestFullscreen().catch(err => console.error(err));
       elem.style.position = 'fixed';
       elem.style.top = '0';
       elem.style.left = '0';
@@ -27,5 +26,6 @@ export function useFullscreen() {
       elem.style.zIndex = '';
     }
   }, []);
+
   return { elementRef, toggleFullscreen };
 }
