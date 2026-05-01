@@ -5,21 +5,15 @@ import Link from 'next/link';
 import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
 import AdManager from '../../components/ads/AdManager';
+import Parser from 'rss-parser';
 
-const fallbackSuggestions = [
-  { _id: 'fs1', title: 'Bitcoin Surges Past $75,000', summary: 'Bitcoin reaches new all-time high.', originalUrl: 'https://www.reuters.com', category: 'finance' },
-  { _id: 'fs2', title: 'Real Madrid Advances to Final', summary: 'Late goal secures victory.', originalUrl: 'https://www.bbc.com/sport', category: 'sports' },
-  { _id: 'fs3', title: 'Fed Signals Rate Cuts', summary: 'Powell hints at easing.', originalUrl: 'https://www.bloomberg.com', category: 'finance' },
-  { _id: 'fs4', title: 'Lakers Take Game 1', summary: 'LeBron scores 35 points.', originalUrl: 'https://www.espn.com', category: 'sports' },
+const parser = new Parser();
+const feeds = [
+  'https://feeds.bbci.co.uk/news/rss.xml',
+  'https://feeds.reuters.com/reuters/businessNews',
+  'https://www.espn.com/espn/rss/news',
+  'https://feeds.bloomberg.com/markets/news.rss',
 ];
-
-function makeAbsoluteUrl(url, base) {
-  try {
-    return new URL(url, base).href;
-  } catch {
-    return url;
-  }
-}
 
 export default function NewsArticle() {
   const router = useRouter();
@@ -32,80 +26,61 @@ export default function NewsArticle() {
     if (!id) return;
     const fetchArticle = async () => {
       try {
-        const originalUrl = decodeURIComponent(id);
-        const dbRes = await fetch(`/api/news?id=${encodeURIComponent(originalUrl)}`);
-        let articleData = null;
-        let imageUrl = '';
+        const targetUrl = decodeURIComponent(id);
+        let foundArticle = null;
+        let allArticles = [];
 
-        if (dbRes.ok) {
-          articleData = await dbRes.json();
-          imageUrl = articleData.imageUrl;
-        } else {
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(originalUrl)}`;
-          const proxyRes = await fetch(proxyUrl);
-          const html = await proxyRes.text();
-          
-          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-          let title = titleMatch ? titleMatch[1].replace(/&#?\w+;/g, '').trim() : 'Article';
-          
-          let summary = '';
-          const descMatch = html.match(/<meta name="description" content="([^"]*)"/i);
-          if (descMatch) summary = descMatch[1];
-          if (!summary) {
-            const ogDescMatch = html.match(/<meta property="og:description" content="([^"]*)"/i);
-            if (ogDescMatch) summary = ogDescMatch[1];
-          }
-          if (!summary) {
-            const pMatch = html.match(/<p[^>]*>([^<]+)<\/p>/i);
-            summary = pMatch ? pMatch[1].substring(0, 500) : 'Read the full article on the original website.';
-          }
-          
-          const ogImageMatch = html.match(/<meta property="og:image" content="([^"]*)"/i);
-          if (ogImageMatch) imageUrl = makeAbsoluteUrl(ogImageMatch[1], originalUrl);
-          if (!imageUrl) {
-            const twitterImageMatch = html.match(/<meta name="twitter:image" content="([^"]*)"/i);
-            if (twitterImageMatch) imageUrl = makeAbsoluteUrl(twitterImageMatch[1], originalUrl);
-          }
-          if (!imageUrl) {
-            const imgMatches = html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi);
-            if (imgMatches) {
-              for (let imgTag of imgMatches) {
-                const srcMatch = imgTag.match(/src=["']([^"']+)["']/i);
-                if (srcMatch) {
-                  imageUrl = makeAbsoluteUrl(srcMatch[1], originalUrl);
-                  break;
-                }
+        // Fetch all RSS feeds to find the article and collect suggestions
+        for (const feedUrl of feeds) {
+          try {
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
+            const res = await fetch(proxyUrl);
+            const xml = await res.text();
+            const parsed = await parser.parseString(xml);
+            for (const item of parsed.items.slice(0, 15)) {
+              if (item.link === targetUrl) {
+                foundArticle = {
+                  id: item.link,
+                  title: item.title,
+                  summary: (item.contentSnippet || item.description || '').substring(0, 800),
+                  source: new URL(feedUrl).hostname.replace('www.', ''),
+                  imageUrl: item.enclosure?.url || '',
+                  link: item.link,
+                  fullContent: item.content || item.description || '',
+                };
+              } else {
+                allArticles.push({
+                  id: item.link,
+                  title: item.title,
+                  summary: (item.contentSnippet || item.description || '').substring(0, 150),
+                  source: new URL(feedUrl).hostname.replace('www.', ''),
+                  link: item.link,
+                });
               }
             }
-          }
-          
-          articleData = {
-            originalUrl,
-            title,
-            summary: summary.substring(0, 1000),
-            source: new URL(originalUrl).hostname.replace('www.', ''),
-            imageUrl: imageUrl || '',
-            publishedAt: new Date(),
-            category: 'general',
-          };
+          } catch (err) { console.error(err); }
         }
-        setArticle(articleData);
-        
-        try {
-          const suggestionsRes = await fetch(`/api/news?category=${articleData.category || 'general'}&limit=6`);
-          if (suggestionsRes.ok) {
-            const suggestionsData = await suggestionsRes.json();
-            const filtered = suggestionsData.filter(s => s.originalUrl !== articleData.originalUrl).slice(0, 4);
-            setSuggestions(filtered.length ? filtered : fallbackSuggestions);
-          } else {
-            setSuggestions(fallbackSuggestions);
-          }
-        } catch (err) {
-          setSuggestions(fallbackSuggestions);
+
+        if (foundArticle) {
+          setArticle(foundArticle);
+          // Suggestions: other articles from same source or random
+          const sameSource = allArticles.filter(a => a.source === foundArticle.source && a.id !== foundArticle.id);
+          const randomOthers = allArticles.filter(a => a.source !== foundArticle.source);
+          const combined = [...sameSource, ...randomOthers].slice(0, 4);
+          setSuggestions(combined);
+        } else {
+          // Fallback: article not found in feeds – still show a friendly message
+          setArticle({
+            id: targetUrl,
+            title: 'Article',
+            summary: 'This article could not be loaded. Click the button below to read it on the original website.',
+            source: new URL(targetUrl).hostname,
+            imageUrl: '',
+            link: targetUrl,
+          });
         }
       } catch (err) {
         console.error(err);
-        setArticle(null);
       } finally {
         setLoading(false);
       }
@@ -113,39 +88,10 @@ export default function NewsArticle() {
     fetchArticle();
   }, [id]);
 
-  if (loading) {
-    return (
-      <>
-        <Header />
-        <main className="container mx-auto px-4 py-20 text-center text-gray-400">Loading article...</main>
-        <Footer />
-      </>
-    );
-  }
+  if (loading) return <div className="text-center py-20">Loading article...</div>;
+  if (!article) return <div className="text-center py-20">Article not found.</div>;
 
-  if (!article) {
-    const originalUrl = decodeURIComponent(id || '');
-    return (
-      <>
-        <Header />
-        <AdManager position="video" />
-        <AdManager position="interstitial" />
-        <main className="container mx-auto px-4 py-6">
-          <AdManager position="top" />
-          <div className="max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-md p-6 border border-gray-700 text-center">
-            <h1 className="text-2xl font-bold text-white mb-4">Unable to load preview</h1>
-            <p className="text-gray-300 mb-6">You can read the original article directly.</p>
-            <a href={originalUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg inline-block">Read original article ↗</a>
-            <button onClick={() => router.back()} className="ml-4 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg">← Back</button>
-          </div>
-          <AdManager position="bottom" />
-        </main>
-        <Footer />
-      </>
-    );
-  }
-
-  const displayImage = article.imageUrl || 'https://placehold.co/800x400/1e293b/white?text=News+Image';
+  const imageUrl = article.imageUrl || 'https://placehold.co/800x400/1e293b/white?text=News+Image';
 
   return (
     <>
@@ -155,38 +101,30 @@ export default function NewsArticle() {
       <AdManager position="interstitial" />
       <main className="container mx-auto px-4 py-6">
         <AdManager position="top" />
-        <article className="max-w-3xl mx-auto bg-gray-800 rounded-xl shadow-md p-6 border border-gray-700">
-          <img 
-            src={displayImage} 
-            alt={article.title} 
-            className="w-full rounded-lg mb-4 object-cover max-h-96"
-            onError={(e) => { e.target.src = 'https://placehold.co/800x400/1e293b/white?text=News+Image'; }}
-          />
+        <article className="max-w-3xl mx-auto bg-gray-800 rounded-xl p-6">
+          <img src={imageUrl} className="w-full rounded-lg mb-4 object-cover max-h-96" />
           <h1 className="text-3xl font-bold mb-2 text-white">{article.title}</h1>
-          <div className="text-gray-400 text-sm mb-4">
-            Source: {article.source} | {new Date(article.publishedAt).toLocaleDateString()}
-          </div>
+          <div className="text-gray-400 text-sm mb-4">Source: {article.source}</div>
           <div className="text-gray-200 leading-relaxed text-lg mb-6 whitespace-pre-line">
             {article.summary}
           </div>
-          <div className="flex justify-between items-center mb-8">
-            <a href={article.originalUrl} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition">Read full article on {article.source} ↗</a>
-            <button onClick={() => router.back()} className="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg transition">← Back</button>
-          </div>
+          <a href={article.link} target="_blank" rel="noopener noreferrer" className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded inline-block">Read full article on {article.source} →</a>
         </article>
 
-        <div className="max-w-3xl mx-auto mt-10">
-          <h3 className="text-xl font-bold text-white mb-4 border-l-4 border-blue-500 pl-3">You might also like</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            {suggestions.map(sug => (
-              <Link key={sug._id} href={`/news/${encodeURIComponent(sug.originalUrl)}`} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:bg-gray-700 transition">
-                <h4 className="font-bold text-white text-md mb-1 line-clamp-2">{sug.title}</h4>
-                <p className="text-gray-400 text-sm line-clamp-2">{sug.summary}</p>
-                <span className="text-blue-400 text-xs mt-2 inline-block">Read more →</span>
-              </Link>
-            ))}
+        {suggestions.length > 0 && (
+          <div className="max-w-3xl mx-auto mt-10">
+            <h3 className="text-xl font-bold text-white mb-4">You might also like</h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              {suggestions.map(sug => (
+                <Link key={sug.id} href={`/news/${encodeURIComponent(sug.id)}`} className="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:bg-gray-700">
+                  <h4 className="font-bold text-white mb-1 line-clamp-2">{sug.title}</h4>
+                  <p className="text-gray-400 text-sm line-clamp-2">{sug.summary}</p>
+                  <span className="text-blue-400 text-xs mt-2 inline-block">Read more →</span>
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
         <AdManager position="bottom" />
       </main>
       <Footer />
