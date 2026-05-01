@@ -14,6 +14,7 @@ const GAMES = {
   sudoku: { name: 'Sudoku', icon: '🔢', emoji: '🧩', component: Sudoku },
   runner: { name: 'Endless Runner', icon: '🏃', emoji: '⚡', component: EndlessRunner },
   shooter: { name: 'Space Shooter', icon: '🚀', emoji: '👾', component: SpaceShooter },
+  fighting: { name: 'Fighting Game', icon: '⚔️', emoji: '🥊', component: FightingGame },
 };
 
 export default function GamesPage() {

@@ -1,0 +1,385 @@
+'use client';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useFullscreen } from '../../hooks/useFullscreen';
+import { sounds } from '../../lib/sounds';
+import { getAdCodes } from '../../lib/ads';
+import GameInterstitialAd from '../ads/GameInterstitialAd';
+
+// ---- Character definitions ----
+const CHARACTERS = {
+  blaze: {
+    name: 'Blaze',
+    color: '#ff6600',
+    accent: '#ffcc00',
+    health: 100,
+    power: 0,
+    punchDamage: 8,
+    kickDamage: 12,
+    specialDamage: 25,
+    specialPowerCost: 50,
+    punchSpeed: 8,
+    kickSpeed: 12,
+    specialSpeed: 20,
+  },
+  frost: {
+    name: 'Frost',
+    color: '#00ccff',
+    accent: '#ffffff',
+    health: 100,
+    power: 0,
+    punchDamage: 7,
+    kickDamage: 14,
+    specialDamage: 22,
+    specialPowerCost: 55,
+    punchSpeed: 10,
+    kickSpeed: 14,
+    specialSpeed: 18,
+  },
+};
+
+export default function FightingGame() {
+  const canvasRef = useRef(null);
+  const [difficulty, setDifficulty] = useState('medium');
+  const [selectedChar, setSelectedChar] = useState('blaze');
+  const [gameStarted, setGameStarted] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [winner, setWinner] = useState(null);
+  const [showInstructions, setShowInstructions] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [nickname, setNickname] = useState('');
+  const [justFinished, setJustFinished] = useState(false);
+  const [showReplayAd, setShowReplayAd] = useState(false);
+  const [adCode, setAdCode] = useState('');
+  const { elementRef, toggleFullscreen } = useFullscreen();
+
+  // Game state refs (for animation loop)
+  const gameRef = useRef({
+    player: { x: 100, y: 0, width: 40, height: 80, health: 100, power: 0, facingRight: true, combo: 0, lastHit: 0 },
+    opponent: { x: 0, y: 0, width: 40, height: 80, health: 100, power: 0, facingRight: false, combo: 0 },
+    roundTime: 60,
+    playerAction: null,
+    opponentAction: null,
+    actionTimer: 0,
+    gameActive: true,
+    difficulty,
+  });
+
+  // Load leaderboard + ad code
+  useEffect(() => {
+    fetchLeaderboard();
+    getAdCodes().then(codes => setAdCode(codes.interstitialAdCode));
+  }, []);
+
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await fetch('/api/scores?game=fighting&limit=10');
+      const data = await res.json();
+      setLeaderboard(data);
+    } catch (err) { console.error(err); }
+  };
+
+  const submitScore = async (score) => {
+    if (!nickname.trim()) return;
+    try {
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: 'fighting', nickname: nickname.trim(), score, time: null }),
+      });
+      fetchLeaderboard();
+    } catch (err) { console.error(err); }
+  };
+
+  // Helper: deal damage and update power/combo
+  const dealDamage = (target, amount, isSpecial = false, isPlayer = true) => {
+    const newHealth = Math.max(0, target.health - amount);
+    target.health = newHealth;
+    if (newHealth <= 0) {
+      gameRef.current.gameActive = false;
+      setWinner(isPlayer ? 'player' : 'opponent');
+      setGameOver(true);
+      setJustFinished(true);
+      sounds.playGameOver();
+      const finalScore = isPlayer ? Math.floor((100 - gameRef.current.opponent.health) * 10) : 0;
+      submitScore(finalScore);
+    } else {
+      // increase power for attacker
+      const powerGain = isSpecial ? 5 : 2;
+      if (isPlayer) gameRef.current.player.power = Math.min(100, gameRef.current.player.power + powerGain);
+      else gameRef.current.opponent.power = Math.min(100, gameRef.current.opponent.power + powerGain);
+      // combo counter
+      const now = Date.now();
+      if (now - gameRef.current.player.lastHit < 1000) gameRef.current.player.combo++;
+      else gameRef.current.player.combo = 1;
+      gameRef.current.player.lastHit = now;
+      sounds.playCoin(); // placeholder for hit sound
+    }
+  };
+
+  // AI decision based on difficulty
+  const aiDecision = useCallback(() => {
+    const opp = gameRef.current.opponent;
+    const player = gameRef.current.player;
+    if (opp.health <= 0) return null;
+    const rand = Math.random();
+    let action = null;
+    if (difficulty === 'easy') {
+      if (rand < 0.3) action = 'punch';
+      else if (rand < 0.5) action = 'kick';
+      else if (rand < 0.6 && opp.power >= 50) action = 'special';
+    } else if (difficulty === 'medium') {
+      if (player.health < 30 && rand < 0.5) action = 'special';
+      else if (rand < 0.35) action = 'punch';
+      else if (rand < 0.6) action = 'kick';
+      else if (opp.power >= 50 && rand < 0.7) action = 'special';
+    } else {
+      // hard
+      if (player.health < 40 && opp.power >= 50) action = 'special';
+      else if (rand < 0.4) action = 'punch';
+      else if (rand < 0.7) action = 'kick';
+      else if (opp.power >= 50) action = 'special';
+    }
+    return action;
+  }, [difficulty]);
+
+  // Start match
+  const startMatch = () => {
+    gameRef.current = {
+      player: { x: 100, y: 0, width: 40, height: 80, health: 100, power: 0, facingRight: true, combo: 0, lastHit: 0 },
+      opponent: { x: 300, y: 0, width: 40, height: 80, health: 100, power: 0, facingRight: false, combo: 0 },
+      roundTime: 60,
+      playerAction: null,
+      opponentAction: null,
+      actionTimer: 0,
+      gameActive: true,
+      difficulty,
+    };
+    setGameStarted(true);
+    setGameOver(false);
+    setWinner(null);
+    setJustFinished(false);
+    setNickname('');
+  };
+
+  const resetGame = () => {
+    startMatch();
+  };
+
+  const handlePlayAgain = () => {
+    if (adCode) setShowReplayAd(true);
+    else resetGame();
+  };
+
+  const onAdClose = () => {
+    setShowReplayAd(false);
+    resetGame();
+  };
+
+  // Animation and drawing (canvas)
+  useEffect(() => {
+    if (!gameStarted) return;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    let animId;
+    let lastTimestamp = 0;
+
+    const updateGame = (timestamp) => {
+      if (!gameRef.current.gameActive) {
+        draw(ctx);
+        animId = requestAnimationFrame(updateGame);
+        return;
+      }
+      const delta = Math.min(0.1, (timestamp - lastTimestamp) / 1000);
+      lastTimestamp = timestamp;
+
+      // Timer
+      gameRef.current.roundTime -= delta;
+      if (gameRef.current.roundTime <= 0) {
+        gameRef.current.gameActive = false;
+        const winner = gameRef.current.player.health > gameRef.current.opponent.health ? 'player' : 'opponent';
+        setWinner(winner);
+        setGameOver(true);
+        setJustFinished(true);
+        sounds.playGameOver();
+        const finalScore = winner === 'player' ? Math.floor((100 - gameRef.current.opponent.health) * 10) : 0;
+        submitScore(finalScore);
+        draw(ctx);
+        animId = requestAnimationFrame(updateGame);
+        return;
+      }
+
+      // AI move
+      if (!gameRef.current.opponentAction && gameRef.current.gameActive) {
+        const action = aiDecision();
+        if (action) {
+          gameRef.current.opponentAction = action;
+          gameRef.current.actionTimer = 0.3;
+        }
+      }
+
+      // Process actions
+      if (gameRef.current.playerAction) {
+        gameRef.current.actionTimer -= delta;
+        if (gameRef.current.actionTimer <= 0) {
+          // resolve hit
+          const charStats = CHARACTERS[selectedChar];
+          let damage = 0;
+          let isSpecial = false;
+          switch (gameRef.current.playerAction) {
+            case 'punch': damage = charStats.punchDamage; break;
+            case 'kick': damage = charStats.kickDamage; break;
+            case 'special':
+              if (gameRef.current.player.power >= charStats.specialPowerCost) {
+                damage = charStats.specialDamage;
+                isSpecial = true;
+                gameRef.current.player.power -= charStats.specialPowerCost;
+              }
+              break;
+          }
+          if (damage > 0) {
+            dealDamage(gameRef.current.opponent, damage, isSpecial, true);
+          }
+          gameRef.current.playerAction = null;
+        }
+      }
+
+      if (gameRef.current.opponentAction) {
+        gameRef.current.actionTimer -= delta;
+        if (gameRef.current.actionTimer <= 0) {
+          let damage = 0;
+          switch (gameRef.current.opponentAction) {
+            case 'punch': damage = CHARACTERS.frost.punchDamage; break;
+            case 'kick': damage = CHARACTERS.frost.kickDamage; break;
+            case 'special':
+              if (gameRef.current.opponent.power >= CHARACTERS.frost.specialPowerCost) {
+                damage = CHARACTERS.frost.specialDamage;
+                gameRef.current.opponent.power -= CHARACTERS.frost.specialPowerCost;
+              }
+              break;
+          }
+          if (damage > 0) {
+            dealDamage(gameRef.current.player, damage, false, false);
+          }
+          gameRef.current.opponentAction = null;
+        }
+      }
+
+      draw(ctx);
+      animId = requestAnimationFrame(updateGame);
+    };
+
+    function draw(ctx) {
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+      // background
+      ctx.fillStyle = '#2a2a3a';
+      ctx.fillRect(0, 0, w, h);
+      // ground
+      ctx.fillStyle = '#5a5a6a';
+      ctx.fillRect(0, h - 50, w, 50);
+      // player
+      ctx.fillStyle = CHARACTERS[selectedChar].color;
+      ctx.fillRect(gameRef.current.player.x, h - 100, 40, 80);
+      // opponent
+      ctx.fillStyle = '#8844aa';
+      ctx.fillRect(gameRef.current.opponent.x, h - 100, 40, 80);
+      // health bars
+      ctx.fillStyle = '#cc3333';
+      ctx.fillRect(50, 20, 200, 20);
+      ctx.fillStyle = '#33cc33';
+      ctx.fillRect(50, 20, (gameRef.current.player.health / 100) * 200, 20);
+      ctx.fillStyle = '#cc3333';
+      ctx.fillRect(w - 250, 20, 200, 20);
+      ctx.fillStyle = '#33cc33';
+      ctx.fillRect(w - 250, 20, (gameRef.current.opponent.health / 100) * 200, 20);
+      // power bars
+      ctx.fillStyle = '#ffaa00';
+      ctx.fillRect(50, 45, (gameRef.current.player.power / 100) * 200, 10);
+      ctx.fillRect(w - 250, 45, (gameRef.current.opponent.power / 100) * 200, 10);
+      // timer
+      ctx.fillStyle = 'white';
+      ctx.font = '20px monospace';
+      ctx.fillText(`Time: ${Math.floor(gameRef.current.roundTime)}`, w/2 - 40, 50);
+      // combo
+      if (gameRef.current.player.combo > 1) {
+        ctx.fillStyle = 'gold';
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText(`${gameRef.current.player.combo} HIT!`, w/2 - 30, 100);
+      }
+    }
+
+    animId = requestAnimationFrame(updateGame);
+    return () => cancelAnimationFrame(animId);
+  }, [gameStarted, selectedChar, aiDecision]);
+
+  // Keyboard controls
+  useEffect(() => {
+    if (!gameStarted || !gameRef.current.gameActive) return;
+    const handleKey = (e) => {
+      e.preventDefault();
+      const key = e.key;
+      if (key === 'a') gameRef.current.playerAction = 'punch';
+      if (key === 's') gameRef.current.playerAction = 'kick';
+      if (key === 'd') gameRef.current.playerAction = 'special';
+      if (key === 'ArrowLeft') gameRef.current.player.x = Math.max(20, gameRef.current.player.x - 10);
+      if (key === 'ArrowRight') gameRef.current.player.x = Math.min(300, gameRef.current.player.x + 10);
+      if (key === 'ArrowUp' && gameRef.current.player.y === 0) { /* jump logic omitted for brevity */ }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [gameStarted]);
+
+  if (!gameStarted) {
+    return (
+      <div ref={elementRef} className="w-full p-4 bg-gray-800 rounded-xl text-center">
+        <h2 className="text-2xl font-bold mb-4">⚔️ Fighting Game</h2>
+        <div className="mb-4">
+          <label className="mr-4">Select Character: </label>
+          <button onClick={() => setSelectedChar('blaze')} className={`px-4 py-2 rounded ${selectedChar === 'blaze' ? 'bg-orange-600' : 'bg-gray-700'}`}>Blaze (Fire)</button>
+          <button onClick={() => setSelectedChar('frost')} className={`ml-2 px-4 py-2 rounded ${selectedChar === 'frost' ? 'bg-cyan-600' : 'bg-gray-700'}`}>Frost (Ice)</button>
+        </div>
+        <div className="mb-4">
+          <label className="mr-4">Difficulty: </label>
+          <select value={difficulty} onChange={e => setDifficulty(e.target.value)} className="bg-gray-700 px-2 py-1 rounded">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <button onClick={startMatch} className="bg-green-600 px-6 py-2 rounded">Start Fight</button>
+        <button onClick={() => setShowInstructions(!showInstructions)} className="ml-4 bg-gray-600 px-4 py-2 rounded">Instructions</button>
+        <button onClick={() => setShowLeaderboard(!showLeaderboard)} className="ml-4 bg-blue-600 px-4 py-2 rounded">Leaderboard</button>
+        <button onClick={toggleFullscreen} className="ml-4 bg-purple-600 px-4 py-2 rounded">Fullscreen</button>
+        {showInstructions && (
+          <div className="mt-4 p-3 bg-gray-700 rounded text-left">
+            <p>Controls: ← → move, A = punch, S = kick, D = special (uses power). Fill power bar by landing hits.</p>
+            <p>Special does extra damage but consumes 50 power.</p>
+          </div>
+        )}
+        {showLeaderboard && (
+          <div className="mt-4 p-3 bg-gray-700 rounded">
+            <h3>🏆 Top Fighters</h3>
+            <ul>{leaderboard.map((e,i) => <li key={i}>{e.nickname} – {e.score} pts</li>)}</ul>
+            <button onClick={() => setShowLeaderboard(false)}>Close</button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={elementRef} className="w-full relative">
+      {showReplayAd && <GameInterstitialAd adCode={adCode} onClose={onAdClose} />}
+      <canvas ref={canvasRef} width={800} height={400} className="w-full border border-gray-600 rounded-lg" style={{ maxWidth: '100%', height: 'auto' }} />
+      {gameOver && justFinished && (
+        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center">
+          <p className="text-white text-2xl">{winner === 'player' ? 'You Win!' : 'You Lose!'}</p>
+          <input type="text" value={nickname} onChange={e=>setNickname(e.target.value)} placeholder="Your name" className="mt-2 px-2 py-1 rounded" />
+          <button onClick={()=>{ submitScore(winner === 'player' ? Math.floor((100 - gameRef.current.opponent.health) * 10) : 0); setJustFinished(false); }} className="mt-2 bg-blue-600 px-4 py-1 rounded">Save Score</button>
+          <button onClick={handlePlayAgain} className="mt-2 bg-green-600 px-4 py-1 rounded">Play Again</button>
+        </div>
+      )}
+    </div>
+  );
+}
