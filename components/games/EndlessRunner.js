@@ -5,158 +5,311 @@ import { sounds } from '../../lib/sounds';
 import { getAdCodes } from '../../lib/ads';
 import GameInterstitialAd from '../ads/GameInterstitialAd';
 
-export default function SpaceShooter() {
+export default function EndlessRunner() {
   const canvasRef = useRef(null);
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
-  const [lives, setLives] = useState(3);
   const [gameOver, setGameOver] = useState(false);
   const [gameRunning, setGameRunning] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [justFinished, setJustFinished] = useState(false);
   const [showReplayAd, setShowReplayAd] = useState(false);
   const [adCode, setAdCode] = useState('');
+  const [nickname, setNickname] = useState('');
   const { elementRef, toggleFullscreen } = useFullscreen();
 
-  const gameRef = useRef({
-    player: { x: 0, width: 40, height: 30 },
-    bullets: [],
+  const gameDataRef = useRef({
+    player: { x: 50, y: 150, width: 30, height: 30, isJumping: false, yVelocity: 0 },
+    obstacles: [],
+    coins: [],
     enemies: [],
+    enemyBullets: [],
+    playerBullets: [],
+    particles: [],
+    clouds: [],
+    birds: [],
+    grassPatches: [],
     frame: 0,
-    cooldown: 0,
-    lives: 3,
     score: 0,
+    shootCooldown: 0,
   });
 
+  const groundY = 180;
+
   useEffect(() => {
-    const saved = localStorage.getItem('shooterHighScore');
+    const saved = localStorage.getItem('runnerHighScore');
     if (saved) setHighScore(parseInt(saved));
     getAdCodes().then(codes => setAdCode(codes.interstitialAdCode));
   }, []);
+
+  const saveGlobalScore = async (finalScore, name) => {
+    if (!name.trim() || finalScore === 0) return;
+    try {
+      await fetch('/api/scores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game: 'runner', nickname: name.trim(), score: finalScore, time: null }),
+      });
+    } catch (err) { console.error(err); }
+  };
+
+  const addParticle = (x, y) => {
+    gameDataRef.current.particles.push({ x, y, vx: (Math.random() - 0.5) * 4, vy: Math.random() * -3, life: 20 });
+  };
 
   useEffect(() => {
     if (!gameRunning) return;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    const w = canvas.width, h = canvas.height;
-    const playerY = h - 50;
     let animId;
-    const data = gameRef.current;
-    data.player.x = w/2 - 20;
-    data.bullets = [];
-    data.enemies = [];
-    data.frame = 0;
-    data.cooldown = 0;
-    data.lives = 3;
-    data.score = 0;
-    setLives(3);
-    setScore(0);
+    const data = gameDataRef.current;
 
-    let pointerX = data.player.x;
-    const move = (clientX) => {
-      const rect = canvas.getBoundingClientRect();
-      const scale = w / rect.width;
-      let newX = (clientX - rect.left) * scale - 20;
-      newX = Math.min(Math.max(newX, 0), w - 40);
-      data.player.x = newX;
-      pointerX = newX;
+    data.player = { x: 50, y: groundY - 30, width: 30, height: 30, isJumping: false, yVelocity: 0 };
+    data.obstacles = [];
+    data.coins = [];
+    data.enemies = [];
+    data.enemyBullets = [];
+    data.playerBullets = [];
+    data.particles = [];
+    data.clouds = [];
+    data.birds = [];
+    data.grassPatches = [];
+    data.frame = 0;
+    data.score = 0;
+    data.shootCooldown = 0;
+    setScore(0);
+    setJustFinished(false);
+
+    for (let i=0;i<5;i++) {
+      data.clouds.push({ x: Math.random()*canvas.width, y: Math.random()*80, size: 40+Math.random()*30, speed: 0.3 + Math.random()*0.5 });
+      data.birds.push({ x: Math.random()*canvas.width, y: Math.random()*70, flap: 0, speed: 1 + Math.random()*0.5 });
+    }
+    for (let i=0;i<30;i++) {
+      data.grassPatches.push({ x: Math.random()*canvas.width, size: 5+Math.random()*10 });
+    }
+
+    const jump = () => {
+      if (!data.player.isJumping && gameRunning) {
+        data.player.isJumping = true;
+        data.player.yVelocity = -11;
+        sounds.playJump();
+      }
     };
-    const handleMove = (e) => move(e.clientX);
-    const handleTouch = (e) => { e.preventDefault(); move(e.touches[0].clientX); };
     const shoot = () => {
-      if (data.cooldown <= 0 && gameRunning) {
-        data.bullets.push({ x: data.player.x + 17, y: playerY - 10, w: 6, h: 12 });
-        data.cooldown = 10;
+      if (data.shootCooldown <= 0 && gameRunning) {
+        data.playerBullets.push({ x: data.player.x + data.player.width, y: data.player.y + 15, width: 10, height: 4, vx: 8 });
+        data.shootCooldown = 15;
         sounds.playShoot();
       }
     };
-    const handleClick = () => shoot();
-    const handleTouchStart = (e) => { e.preventDefault(); shoot(); };
-    canvas.addEventListener('mousemove', handleMove);
-    canvas.addEventListener('click', handleClick);
-    canvas.addEventListener('touchmove', handleTouch);
-    canvas.addEventListener('touchstart', handleTouchStart);
+    const handleKey = (e) => {
+      if (e.code === 'Space') { e.preventDefault(); jump(); }
+      if (e.code === 'KeyF') { e.preventDefault(); shoot(); }
+    };
+    const handleTouch = (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const touchX = e.touches[0].clientX - rect.left;
+      const halfWidth = canvas.width / 2;
+      if (touchX < halfWidth) jump();
+      else shoot();
+    };
+    window.addEventListener('keydown', handleKey);
+    canvas.addEventListener('touchstart', handleTouch);
+    window.addEventListener('click', () => { if (gameRunning) shoot(); });
 
     function update() {
       if (!gameRunning) return;
-      if (data.cooldown > 0) data.cooldown--;
-      for (let i=0; i<data.bullets.length; i++) {
-        data.bullets[i].y -= 8;
-        if (data.bullets[i].y + data.bullets[i].h < 0) data.bullets.splice(i--,1);
+      if (data.shootCooldown > 0) data.shootCooldown--;
+
+      if (data.player.isJumping) {
+        data.player.y += data.player.yVelocity;
+        data.player.yVelocity += 0.8;
+        if (data.player.y + data.player.height >= groundY) {
+          data.player.y = groundY - data.player.height;
+          data.player.isJumping = false;
+          data.player.yVelocity = 0;
+        }
+      } else {
+        data.player.y = groundY - data.player.height;
       }
-      if (data.frame % 40 === 0 && Math.random() > 0.4) {
-        data.enemies.push({ x: Math.random() * (w - 30), y: -30, w: 30, h: 30 });
+
+      for (let c of data.clouds) { c.x -= c.speed; if (c.x + c.size*2 < 0) c.x = canvas.width + c.size*2; }
+      for (let b of data.birds) { b.x -= b.speed; b.flap = (b.flap+0.1)%(Math.PI*2); if (b.x+20<0) b.x = canvas.width+20; }
+
+      if (data.frame % 85 === 0 && Math.random() > 0.5) {
+        data.obstacles.push({ x: canvas.width, y: groundY - 25, width: 20, height: 25 });
       }
+      if (data.frame % 35 === 0 && Math.random() > 0.6) {
+        data.coins.push({ x: canvas.width, y: groundY - 40, width: 12, height: 12 });
+      }
+      if (data.frame % 180 === 0 && Math.random() > 0.7) {
+        data.enemies.push({ x: canvas.width, y: groundY - 35, width: 25, height: 30, shootCooldown: 0 });
+      }
+
       for (let i=0; i<data.enemies.length; i++) {
         const e = data.enemies[i];
-        e.y += 4;
-        if (e.y > h) { data.enemies.splice(i--,1); continue; }
-        if (e.x < data.player.x+40 && e.x+30 > data.player.x && e.y+30 > playerY && e.y < playerY+30) {
-          data.enemies.splice(i--,1);
-          data.lives--;
-          setLives(data.lives);
-          sounds.playExplosion();
-          if (data.lives <= 0) {
-            setGameOver(true);
-            setGameRunning(false);
-            if (data.score > highScore) {
-              setHighScore(data.score);
-              localStorage.setItem('shooterHighScore', data.score);
-            }
-          }
-          continue;
+        e.x -= 4;
+        if (e.x + e.width < 0) { data.enemies.splice(i,1); i--; continue; }
+        if (e.shootCooldown > 0) e.shootCooldown--;
+        if (e.shootCooldown === 0 && Math.random() < 0.02) {
+          data.enemyBullets.push({ x: e.x, y: e.y+15, width: 8, height: 4, vx: -5 });
+          e.shootCooldown = 60;
+          sounds.playShoot();
         }
-        for (let j=0; j<data.bullets.length; j++) {
-          const b = data.bullets[j];
-          if (b.x < e.x+30 && b.x+6 > e.x && b.y < e.y+30 && b.y+12 > e.y) {
-            data.bullets.splice(j--,1);
-            data.enemies.splice(i--,1);
-            data.score += 10;
+        if (data.player.x < e.x+e.width && data.player.x+data.player.width > e.x &&
+            data.player.y < e.y+e.height && data.player.y+data.player.height > e.y) {
+          setGameOver(true); setGameRunning(false); sounds.playExplosion(); setJustFinished(true);
+          if (data.score > highScore) setHighScore(data.score);
+          return;
+        }
+      }
+
+      for (let i=0; i<data.enemyBullets.length; i++) {
+        const b = data.enemyBullets[i];
+        b.x += b.vx;
+        if (b.x + b.width < 0 || b.x > canvas.width) { data.enemyBullets.splice(i,1); i--; continue; }
+        if (data.player.x < b.x+b.width && data.player.x+data.player.width > b.x &&
+            data.player.y < b.y+b.height && data.player.y+data.player.height > b.y) {
+          setGameOver(true); setGameRunning(false); sounds.playExplosion(); setJustFinished(true);
+          if (data.score > highScore) setHighScore(data.score);
+          return;
+        }
+      }
+
+      for (let i=0; i<data.playerBullets.length; i++) {
+        const b = data.playerBullets[i];
+        b.x += b.vx;
+        if (b.x > canvas.width) { data.playerBullets.splice(i,1); i--; continue; }
+        for (let j=0; j<data.enemies.length; j++) {
+          const e = data.enemies[j];
+          if (b.x < e.x+e.width && b.x+b.width > e.x && b.y < e.y+e.height && b.y+b.height > e.y) {
+            data.enemies.splice(j,1);
+            data.playerBullets.splice(i,1);
+            data.score += 20;
             setScore(data.score);
             sounds.playCoin();
-            break;
+            for (let p=0;p<10;p++) addParticle(e.x+e.width/2, e.y+e.height/2);
+            i--; break;
           }
         }
+      }
+
+      for (let i=0; i<data.obstacles.length; i++) {
+        data.obstacles[i].x -= 6;
+        if (data.obstacles[i].x + data.obstacles[i].width < 0) { data.obstacles.splice(i,1); i--; continue; }
+        const obs = data.obstacles[i];
+        if (data.player.x < obs.x+obs.width && data.player.x+data.player.width > obs.x &&
+            data.player.y < obs.y+obs.height && data.player.y+data.player.height > obs.y) {
+          setGameOver(true); setGameRunning(false); sounds.playExplosion(); setJustFinished(true);
+          if (data.score > highScore) setHighScore(data.score);
+          return;
+        }
+      }
+
+      for (let i=0; i<data.coins.length; i++) {
+        data.coins[i].x -= 6;
+        if (data.coins[i].x + data.coins[i].width < 0) { data.coins.splice(i,1); i--; continue; }
+        const coin = data.coins[i];
+        if (data.player.x < coin.x+coin.width && data.player.x+data.player.width > coin.x &&
+            data.player.y < coin.y+coin.height && data.player.y+data.player.height > coin.y) {
+          data.coins.splice(i,1);
+          data.score += 10;
+          setScore(data.score);
+          sounds.playCoin();
+          for (let p=0;p<5;p++) addParticle(coin.x+6, coin.y+6);
+          i--;
+        }
+      }
+
+      for (let i=0; i<data.particles.length; i++) {
+        data.particles[i].x += data.particles[i].vx;
+        data.particles[i].y += data.particles[i].vy;
+        data.particles[i].life--;
+        if (data.particles[i].life <= 0) data.particles.splice(i,1);
       }
       data.frame++;
     }
 
     function draw() {
-      ctx.clearRect(0,0,w,h);
-      ctx.fillStyle = '#0a0a2a';
-      ctx.fillRect(0,0,w,h);
-      ctx.fillStyle = 'white';
-      for (let i=0;i<100;i++) ctx.fillRect((i*79)%w, (i*13 + Date.now()*0.2)%h, 2,2);
-      ctx.fillStyle = '#00bfff';
-      ctx.fillRect(data.player.x, playerY, 40, 30);
-      ctx.fillStyle = '#0088cc';
-      ctx.fillRect(data.player.x+10, playerY-10, 20, 10);
-      ctx.fillStyle = '#ffff00';
-      data.bullets.forEach(b => ctx.fillRect(b.x, b.y, b.w, b.h));
-      ctx.fillStyle = '#ff4444';
-      data.enemies.forEach(e => ctx.fillRect(e.x, e.y, e.w, e.h));
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 20px monospace';
-      ctx.fillText(`Score: ${data.score}`, 10, 30);
-      ctx.fillStyle = 'red';
-      ctx.fillText(`❤️ ${data.lives}`, w-70, 30);
-      ctx.fillStyle = 'gold';
-      ctx.fillText(`🏆 ${highScore}`, w-120, 30);
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      const grad = ctx.createLinearGradient(0,0,0,groundY);
+      grad.addColorStop(0,'#0a0a2a'); grad.addColorStop(1,'#1a2a4a');
+      ctx.fillStyle = grad; ctx.fillRect(0,0,canvas.width,groundY);
+      
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      for (let c of data.clouds) {
+        ctx.beginPath(); ctx.arc(c.x,c.y,c.size*0.6,0,2*Math.PI);
+        ctx.arc(c.x+c.size*0.4,c.y-c.size*0.2,c.size*0.5,0,2*Math.PI);
+        ctx.arc(c.x-c.size*0.4,c.y-c.size*0.2,c.size*0.5,0,2*Math.PI);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#444';
+      for (let b of data.birds) {
+        const wing = Math.sin(b.flap)*10;
+        ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-15,b.y+5+wing); ctx.lineTo(b.x-8,b.y); ctx.lineTo(b.x-15,b.y-5-wing); ctx.fill();
+      }
+      const gradGround = ctx.createLinearGradient(0,groundY,0,canvas.height);
+      gradGround.addColorStop(0,'#2d5a1e'); gradGround.addColorStop(1,'#1a3a10');
+      ctx.fillStyle = gradGround; ctx.fillRect(0, groundY, canvas.width, canvas.height-groundY);
+      ctx.fillStyle = '#8B5A2B'; ctx.fillRect(0, groundY, canvas.width, 5);
+      ctx.fillStyle = '#4CAF50';
+      for (let g of data.grassPatches) { ctx.fillRect(g.x % canvas.width, groundY-6, g.size, 6); }
+      for (let coin of data.coins) {
+        ctx.shadowBlur = 10; ctx.shadowColor = 'gold';
+        ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(coin.x+6, coin.y+6, 8, 0, 2*Math.PI); ctx.fill();
+        ctx.fillStyle = '#FFA500'; ctx.beginPath(); ctx.arc(coin.x+6, coin.y+6, 4, 0, 2*Math.PI); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      ctx.fillStyle = '#8B0000';
+      for (let obs of data.obstacles) {
+        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        ctx.fillStyle = '#5a0000'; ctx.fillRect(obs.x+5, obs.y-5, obs.width-10, 5);
+        ctx.fillStyle = '#8B0000';
+      }
+      for (let e of data.enemies) {
+        ctx.fillStyle = '#6a0dad'; ctx.fillRect(e.x, e.y, e.width, e.height);
+        ctx.fillStyle = '#ffcc00'; ctx.fillRect(e.x+5, e.y+10, 5, 5); ctx.fillRect(e.x+15, e.y+10, 5, 5);
+      }
+      ctx.fillStyle = '#ff6600';
+      for (let b of data.enemyBullets) ctx.fillRect(b.x, b.y, b.width, b.height);
+      ctx.fillStyle = '#00ff00';
+      for (let b of data.playerBullets) ctx.fillRect(b.x, b.y, b.width, b.height);
+      for (let p of data.particles) { ctx.fillStyle = `rgba(255,200,0,${p.life/20})`; ctx.fillRect(p.x, p.y, 3, 3); }
+      ctx.fillStyle = '#00bfff'; ctx.fillRect(data.player.x, data.player.y, data.player.width, data.player.height);
+      ctx.fillStyle = '#0088cc'; ctx.fillRect(data.player.x+5, data.player.y-10, 20, 10);
+      ctx.fillStyle = 'white'; ctx.fillRect(data.player.x+20, data.player.y+8, 5, 5); ctx.fillRect(data.player.x+8, data.player.y+8, 5, 5);
+      ctx.fillStyle = '#ff4444'; ctx.fillRect(data.player.x-8, data.player.y+10, 8, 15);
+      ctx.fillStyle = 'white'; ctx.font = 'bold 24px Arial'; ctx.fillText(`🏆 ${data.score}`, 10, 40);
+      ctx.fillStyle = 'gold'; ctx.font = 'bold 16px Arial'; ctx.fillText(`High: ${highScore}`, 10, 70);
+      ctx.fillStyle = 'white'; ctx.font = '12px Arial'; ctx.fillText('← Tap left to Jump | Tap right to Shoot →', canvas.width/2-150, 25);
     }
 
     function loop() { if (gameRunning) { update(); draw(); animId = requestAnimationFrame(loop); } }
     loop();
     return () => {
       cancelAnimationFrame(animId);
-      canvas.removeEventListener('mousemove', handleMove);
-      canvas.removeEventListener('click', handleClick);
-      canvas.removeEventListener('touchmove', handleTouch);
-      canvas.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('keydown', handleKey);
+      canvas.removeEventListener('touchstart', handleTouch);
     };
   }, [gameRunning, highScore]);
 
   const startGame = () => {
     setGameOver(false);
+    setScore(0);
     setGameRunning(true);
+    setJustFinished(false);
+    const data = gameDataRef.current;
+    data.player = { x: 50, y: groundY - 30, width: 30, height: 30, isJumping: false, yVelocity: 0 };
+    data.obstacles = [];
+    data.coins = [];
+    data.enemies = [];
+    data.enemyBullets = [];
+    data.playerBullets = [];
+    data.particles = [];
+    data.frame = 0;
+    data.score = 0;
+    data.shootCooldown = 0;
   };
 
   const handlePlayAgain = () => {
@@ -173,24 +326,34 @@ export default function SpaceShooter() {
   };
 
   return (
-    <div ref={elementRef} className="w-full h-full min-h-[500px] bg-gradient-to-b from-gray-800 to-black rounded-xl p-4">
+    <div ref={elementRef} className="w-full h-full min-h-[500px] bg-gradient-to-b from-gray-900 to-black rounded-xl p-4">
       {showReplayAd && <GameInterstitialAd adCode={adCode} onClose={onAdClose} />}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-cyan-400">🚀 Space Shooter</h2>
+      <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
+        <h2 className="text-2xl font-bold text-cyan-400">Endless Runner</h2>
         <div className="flex gap-2">
-          <button onClick={()=>setShowInstructions(!showInstructions)} className="bg-gray-700 px-3 py-1 rounded">Help</button>
-          <button onClick={toggleFullscreen} className="bg-purple-700 px-3 py-1 rounded">Fullscreen</button>
+          <button onClick={()=>setShowInstructions(!showInstructions)} className="bg-gray-600 text-white px-3 py-1 rounded">Instructions</button>
+          <button onClick={toggleFullscreen} className="bg-purple-600 text-white px-3 py-1 rounded">Fullscreen</button>
         </div>
       </div>
-      {showInstructions && <div className="bg-gray-800 p-3 rounded mb-4 text-sm">Move mouse/finger; click/tap to shoot. Avoid red enemies.</div>}
-      {!gameRunning && !gameOver && <button onClick={startGame} className="bg-green-600 px-6 py-2 rounded-lg mb-4">🚀 Start Game</button>}
-      {gameOver && (
-        <div className="mb-4 p-4 bg-red-800 rounded-lg text-center">
-          <p className="text-xl font-bold">Game Over! Score: {score}</p>
-          <button onClick={handlePlayAgain} className="mt-2 bg-blue-600 px-4 py-1 rounded">Play Again</button>
+      {showInstructions && (
+        <div className="bg-gray-800 p-4 rounded-lg mb-4 text-sm">
+          <h3 className="font-bold mb-2 text-cyan-300">How to Play</h3>
+          <ul className="list-disc list-inside"><li>Tap left / Space to jump</li><li>Tap right / F to shoot</li><li>Collect coins (+10), kill enemies (+20)</li><li>Avoid obstacles and enemy bullets</li></ul>
         </div>
       )}
-      <canvas ref={canvasRef} width={800} height={500} className="border border-gray-600 rounded-xl w-full" style={{ maxWidth: '100%', height: 'auto', cursor: 'none' }} />
+      {!gameRunning && !gameOver && <button onClick={startGame} className="mb-4 bg-green-600 text-white px-6 py-2 rounded-lg">🚀 Start Game</button>}
+      {gameOver && justFinished && (
+        <div className="mb-4 p-4 bg-red-800 rounded-lg text-center">
+          <p className="text-red-200 font-bold text-xl">Game Over! Score: {score}</p>
+          <div className="mt-2">
+            <input type="text" value={nickname} onChange={(e)=>setNickname(e.target.value)} className="border rounded px-2 py-1 bg-gray-700 text-white" placeholder="Your nickname" />
+            <button onClick={()=>{ saveGlobalScore(score, nickname); setJustFinished(false); }} className="ml-2 bg-blue-600 px-3 py-1 rounded">Submit Score</button>
+            <button onClick={()=>setJustFinished(false)} className="ml-2 bg-gray-500 px-3 py-1 rounded">Skip</button>
+          </div>
+          <button onClick={handlePlayAgain} className="mt-2 bg-blue-600 px-4 py-2 rounded">Play Again</button>
+        </div>
+      )}
+      <canvas ref={canvasRef} width={800} height={300} className="border border-gray-600 rounded-lg shadow-md w-full" style={{ maxWidth: '100%', height: 'auto' }} />
     </div>
   );
 }
