@@ -5,15 +5,6 @@ import Link from 'next/link';
 import Header from '../../components/layout/Header';
 import Footer from '../../components/layout/Footer';
 import AdManager from '../../components/ads/AdManager';
-import Parser from 'rss-parser';
-
-const parser = new Parser();
-const feeds = [
-  'https://feeds.bbci.co.uk/news/rss.xml',
-  'https://feeds.reuters.com/reuters/businessNews',
-  'https://www.espn.com/espn/rss/news',
-  'https://feeds.bloomberg.com/markets/news.rss',
-];
 
 export default function NewsArticle() {
   const router = useRouter();
@@ -27,53 +18,19 @@ export default function NewsArticle() {
     const fetchArticle = async () => {
       try {
         const targetUrl = decodeURIComponent(id);
-        let foundArticle = null;
-        let allArticles = [];
-
-        // Fetch all RSS feeds to find the article and collect suggestions
-        for (const feedUrl of feeds) {
-          try {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`;
-            const res = await fetch(proxyUrl);
-            const xml = await res.text();
-            const parsed = await parser.parseString(xml);
-            for (const item of parsed.items.slice(0, 15)) {
-              if (item.link === targetUrl) {
-                foundArticle = {
-                  id: item.link,
-                  title: item.title,
-                  summary: (item.contentSnippet || item.description || '').substring(0, 800),
-                  source: new URL(feedUrl).hostname.replace('www.', ''),
-                  imageUrl: item.enclosure?.url || '',
-                  link: item.link,
-                  fullContent: item.content || item.description || '',
-                };
-              } else {
-                allArticles.push({
-                  id: item.link,
-                  title: item.title,
-                  summary: (item.contentSnippet || item.description || '').substring(0, 150),
-                  source: new URL(feedUrl).hostname.replace('www.', ''),
-                  link: item.link,
-                });
-              }
-            }
-          } catch (err) { console.error(err); }
-        }
-
-        if (foundArticle) {
-          setArticle(foundArticle);
-          // Suggestions: other articles from same source or random
-          const sameSource = allArticles.filter(a => a.source === foundArticle.source && a.id !== foundArticle.id);
-          const randomOthers = allArticles.filter(a => a.source !== foundArticle.source);
-          const combined = [...sameSource, ...randomOthers].slice(0, 4);
-          setSuggestions(combined);
+        const res = await fetch('/api/rss');
+        const allArticles = await res.json();
+        const found = allArticles.find(a => a.id === targetUrl);
+        if (found) {
+          setArticle(found);
+          const others = allArticles.filter(a => a.id !== targetUrl).slice(0, 4);
+          setSuggestions(others);
         } else {
-          // Fallback: article not found in feeds – still show a friendly message
+          // Fallback
           setArticle({
             id: targetUrl,
             title: 'Article',
-            summary: 'This article could not be loaded. Click the button below to read it on the original website.',
+            summary: 'Click the button below to read the full article.',
             source: new URL(targetUrl).hostname,
             imageUrl: '',
             link: targetUrl,

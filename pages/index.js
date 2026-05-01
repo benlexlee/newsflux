@@ -6,15 +6,6 @@ import Footer from '../components/layout/Footer';
 import AdManager from '../components/ads/AdManager';
 import MarketTicker from '../components/market/Ticker';
 import HeadlineTicker from '../components/HeadlineTicker';
-import Parser from 'rss-parser';
-
-const parser = new Parser();
-const feeds = [
-  { url: 'https://feeds.bbci.co.uk/news/rss.xml', source: 'BBC', category: 'general' },
-  { url: 'https://feeds.reuters.com/reuters/businessNews', source: 'Reuters', category: 'finance' },
-  { url: 'https://www.espn.com/espn/rss/news', source: 'ESPN', category: 'sports' },
-  { url: 'https://feeds.bloomberg.com/markets/news.rss', source: 'Bloomberg', category: 'finance' },
-];
 
 export default function Home() {
   const [news, setNews] = useState([]);
@@ -22,30 +13,15 @@ export default function Home() {
 
   useEffect(() => {
     const fetchNews = async () => {
-      const allArticles = [];
-      for (const feed of feeds) {
-        try {
-          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(feed.url)}`;
-          const res = await fetch(proxyUrl);
-          const xml = await res.text();
-          const parsed = await parser.parseString(xml);
-          const articles = parsed.items.slice(0, 8).map(item => ({
-            id: item.link,
-            title: item.title,
-            summary: (item.contentSnippet || item.description || '').substring(0, 200),
-            source: feed.source,
-            category: feed.category,
-            imageUrl: item.enclosure?.url || '',
-            link: item.link,
-            fullContent: item.content || item.description || '',
-          }));
-          allArticles.push(...articles);
-        } catch (err) { console.error(err); }
+      try {
+        const res = await fetch('/api/rss');
+        const data = await res.json();
+        setNews(data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
-      // Shuffle and limit
-      const shuffled = allArticles.sort(() => 0.5 - Math.random());
-      setNews(shuffled.slice(0, 20));
-      setLoading(false);
     };
     fetchNews();
   }, []);
@@ -71,7 +47,7 @@ export default function Home() {
                   <div className="text-blue-400 text-sm mb-1">{item.source}</div>
                   <h2 className="text-xl font-bold mb-2 line-clamp-2">{item.title}</h2>
                   <p className="text-gray-300 mb-4 line-clamp-3">{item.summary}</p>
-                  <Link href={`/news/${encodeURIComponent(item.link)}`} className="text-blue-400 hover:underline">Read more →</Link>
+                  <Link href={`/news/${encodeURIComponent(item.id)}`} className="text-blue-400 hover:underline">Read more →</Link>
                 </div>
                 {idx === 1 && <AdManager position="middle" />}
               </div>
