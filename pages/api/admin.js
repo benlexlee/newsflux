@@ -12,10 +12,26 @@ export default async function handler(req, res) {
     }
   } else if (req.method === 'POST') {
     try {
-      const { topBannerCode, middleBannerCode, bottomBannerCode, videoAdCode, interstitialAdCode } = req.body;
+      const {
+        topBannerCode,
+        middleBannerCode,
+        bottomBannerCode,
+        videoAdCode,
+        interstitialAdCode,
+        rewardsCardCount,
+      } = req.body;
+
       const settings = await AdSettings.findOneAndUpdate(
         {},
-        { topBannerCode, middleBannerCode, bottomBannerCode, videoAdCode, interstitialAdCode, updatedAt: new Date() },
+        {
+          topBannerCode,
+          middleBannerCode,
+          bottomBannerCode,
+          videoAdCode,
+          interstitialAdCode,
+          rewardsCardCount: rewardsCardCount || 5,
+          updatedAt: new Date(),
+        },
         { upsert: true, new: true }
       );
       res.status(200).json(settings);

@@ -11,10 +11,10 @@ export default function AdminPanel() {
     bottomBannerCode: '',
     videoAdCode: '',
     interstitialAdCode: '',
+    rewardsCardCount: 5,
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [fetchingNews, setFetchingNews] = useState(false);
 
   useEffect(() => {
     fetchAdSettings();
@@ -43,16 +43,12 @@ export default function AdminPanel() {
   };
 
   const handleFetchNews = async () => {
-    setFetchingNews(true);
-    setMessage('🔄 Fetching news from NewsAPI...');
     try {
-      const res = await axios.post('/api/news', { category: 'general' });
-      setMessage(`✅ ${res.data.message}`);
-    } catch (err) {
-      setMessage('❌ Error fetching news');
-    } finally {
-      setFetchingNews(false);
+      await axios.post('/api/news', { category: 'general' });
+      setMessage('📰 News aggregation triggered!');
       setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setMessage('❌ Error triggering news aggregation');
     }
   };
 
@@ -89,26 +85,36 @@ export default function AdminPanel() {
                 <label className="block text-gray-300 font-medium mb-1">Interstitial Ad (after 5 pages)</label>
                 <textarea rows="3" value={ads.interstitialAdCode} onChange={(e) => setAds({...ads, interstitialAdCode: e.target.value})} className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2 font-mono text-sm" />
               </div>
+              <div>
+                <label className="block text-gray-300 font-medium mb-1">Number of Ad Cards on Rewards Page</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  value={ads.rewardsCardCount || 5}
+                  onChange={(e) => setAds({...ads, rewardsCardCount: parseInt(e.target.value) || 5})}
+                  className="w-full bg-gray-900 text-white border border-gray-600 rounded-lg p-2"
+                />
+                <p className="text-xs text-gray-500 mt-1">Set to 0 to hide the cards section entirely.</p>
+              </div>
               <button onClick={handleSave} disabled={loading} className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50">
                 {loading ? 'Saving...' : '💾 Save All Ad Settings'}
               </button>
             </div>
           </div>
           
-          {/* News & Actions Card */}
+          {/* News Card */}
           <div className="bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-700">
             <h2 className="text-xl font-bold mb-4 text-white">📰 News Aggregation</h2>
-            <p className="text-gray-300 text-sm mb-4">Fetch the latest headlines from NewsAPI (30 articles per category). Powered by NewsAPI.org.</p>
-            <button onClick={handleFetchNews} disabled={fetchingNews} className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50">
-              {fetchingNews ? 'Fetching...' : '🔄 Fetch News Now'}
+            <p className="text-gray-300 text-sm mb-4">Fetch the latest headlines from NewsAPI.</p>
+            <button onClick={handleFetchNews} className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition">
+              🔄 Fetch News Now
             </button>
             <hr className="my-6 border-gray-700" />
-            <h3 className="text-lg font-semibold mb-2 text-white">📌 NewsAPI Info</h3>
+            <h3 className="text-lg font-semibold mb-2 text-white">📌 Instructions</h3>
             <ul className="text-gray-300 text-sm space-y-1 list-disc list-inside">
-              <li>Free tier: 100 requests/day</li>
-              <li>Articles come with images</li>
-              <li>Sources include Reuters, Bloomberg, ESPN, BBC, etc.</li>
-              <li>Click "Fetch News Now" to populate the database</li>
+              <li>Ads are placed automatically across the site.</li>
+              <li>Set the number of cards on the Rewards page (0 to hide).</li>
             </ul>
           </div>
         </div>
