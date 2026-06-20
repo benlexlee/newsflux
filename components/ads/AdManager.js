@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import BannerAd from './BannerAd';
 import VideoAd from './VideoAd';
 import InterstitialAd from './InterstitialAd';
@@ -13,6 +13,7 @@ export default function AdManager({ position }) {
     videoAdCode: '',
     interstitialAdCode: '',
   });
+  const containerRef = useRef(null);
 
   useEffect(() => {
     async function loadAds() {
@@ -22,10 +23,41 @@ export default function AdManager({ position }) {
     loadAds();
   }, []);
 
-  if (position === 'video') return <VideoAd adCode={adCodes.videoAdCode} />;
-  if (position === 'interstitial') return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
-  if (position === 'top') return <BannerAd adCode={adCodes.topBannerCode} className="mb-4" />;
-  if (position === 'middle') return <BannerAd adCode={adCodes.middleBannerCode} className="my-6" />;
-  if (position === 'bottom') return <BannerAd adCode={adCodes.bottomBannerCode} className="mt-6" />;
+  // Helper to render ad code with script execution
+  const renderAdCode = (code) => {
+    if (!code) return null;
+
+    // If it contains <script src="...">, extract and load the script
+    const scriptMatch = code.match(/<script\s+src=["']([^"']+)["']/i);
+    if (scriptMatch) {
+      const scriptUrl = scriptMatch[1];
+      // Load the script dynamically
+      const script = document.createElement('script');
+      script.src = scriptUrl;
+      script.async = true;
+      document.body.appendChild(script);
+      // Also render the surrounding HTML (if any)
+      return <div dangerouslySetInnerHTML={{ __html: code.replace(/<script[\s\S]*?<\/script>/i, '') }} />;
+    }
+
+    // If it's a regular HTML block (like the red banner test)
+    return <div dangerouslySetInnerHTML={{ __html: code }} />;
+  };
+
+  if (position === 'video') {
+    return <VideoAd adCode={adCodes.videoAdCode} />;
+  }
+  if (position === 'interstitial') {
+    return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
+  }
+  if (position === 'top') {
+    return <div className="mb-4" ref={containerRef}>{renderAdCode(adCodes.topBannerCode)}</div>;
+  }
+  if (position === 'middle') {
+    return <div className="my-6" ref={containerRef}>{renderAdCode(adCodes.middleBannerCode)}</div>;
+  }
+  if (position === 'bottom') {
+    return <div className="mt-6" ref={containerRef}>{renderAdCode(adCodes.bottomBannerCode)}</div>;
+  }
   return null;
 }
