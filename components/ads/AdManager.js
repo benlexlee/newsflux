@@ -16,33 +16,54 @@ export default function AdManager({ position }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadAds() {
       const codes = await getAdCodes();
+      if (cancelled) return;
+      console.log('[AdManager] codes received from /api/admin:', codes);
       setAdCodes(codes);
     }
     loadAds();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  // Helper to render ad code with script execution
-  const renderAdCode = (code) => {
-    if (!code) return null;
+  const codeForPosition =
+    position === 'top'
+      ? adCodes.topBannerCode
+      : position === 'middle'
+      ? adCodes.middleBannerCode
+      : position === 'bottom'
+      ? adCodes.bottomBannerCode
+      : null;
 
-    // If it contains <script src="...">, extract and load the script
-    const scriptMatch = code.match(/<script\s+src=["']([^"']+)["']/i);
-    if (scriptMatch) {
-      const scriptUrl = scriptMatch[1];
-      // Load the script dynamically
-      const script = document.createElement('script');
-      script.src = scriptUrl;
-      script.async = true;
-      document.body.appendChild(script);
-      // Also render the surrounding HTML (if any)
-      return <div dangerouslySetInnerHTML={{ __html: code.replace(/<script[\s\S]*?<\/script>/i, '') }} />;
-    }
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !codeForPosition) return;
 
-    // If it's a regular HTML block (like the red banner test)
-    return <div dangerouslySetInnerHTML={{ __html: code }} />;
-  };
+    container.innerHTML = '';
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = codeForPosition;
+
+    const nodes = Array.from(tempDiv.childNodes);
+
+    nodes.forEach((node) => {
+      if (node.nodeType === 1 && node.tagName === 'SCRIPT') {
+        const script = document.createElement('script');
+        for (const attr of node.attributes) {
+          script.setAttribute(attr.name, attr.value);
+        }
+        if (node.textContent) {
+          script.textContent = node.textContent;
+        }
+        container.appendChild(script);
+      } else {
+        container.appendChild(node);
+      }
+    });
+  }, [codeForPosition]);
 
   if (position === 'video') {
     return <VideoAd adCode={adCodes.videoAdCode} />;
@@ -51,13 +72,13 @@ export default function AdManager({ position }) {
     return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
   }
   if (position === 'top') {
-    return <div className="mb-4" ref={containerRef}>{renderAdCode(adCodes.topBannerCode)}</div>;
+    return <div className="mb-4" ref={containerRef} />;
   }
   if (position === 'middle') {
-    return <div className="my-6" ref={containerRef}>{renderAdCode(adCodes.middleBannerCode)}</div>;
+    return <div className="my-6" ref={containerRef} />;
   }
   if (position === 'bottom') {
-    return <div className="mt-6" ref={containerRef}>{renderAdCode(adCodes.bottomBannerCode)}</div>;
+    return <div className="mt-6" ref={containerRef} />;
   }
   return null;
 }
