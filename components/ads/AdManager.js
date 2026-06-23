@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import BannerAd from './BannerAd';
 import VideoAd from './VideoAd';
 import InterstitialAd from './InterstitialAd';
@@ -12,58 +12,63 @@ export default function AdManager({ position }) {
     bottomBannerCode: '',
     videoAdCode: '',
     interstitialAdCode: '',
+    topBannerCount: 1,
+    middleBannerCount: 1,
+    bottomBannerCount: 1,
   });
-  const containerRef = useRef(null);
 
   useEffect(() => {
-    let cancelled = false;
     async function loadAds() {
       const codes = await getAdCodes();
-      if (cancelled) return;
-      console.log('[AdManager] codes received from /api/admin:', codes);
       setAdCodes(codes);
     }
     loadAds();
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  const codeForPosition =
-    position === 'top'
-      ? adCodes.topBannerCode
-      : position === 'middle'
-      ? adCodes.middleBannerCode
-      : position === 'bottom'
-      ? adCodes.bottomBannerCode
-      : null;
+  // Distribute top banners based on count
+  const getDistributedBanners = (position) => {
+    const topCode = adCodes.topBannerCode;
+    const totalCount = adCodes.topBannerCount || 1;
+    if (!topCode || totalCount === 0) return null;
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container || !codeForPosition) return;
+    let topCount = 0, middleCount = 0, bottomCount = 0;
+    if (totalCount === 1) {
+      topCount = 1;
+    } else if (totalCount === 2) {
+      topCount = 1;
+      middleCount = 1;
+    } else {
+      topCount = 1;
+      bottomCount = 1;
+      middleCount = totalCount - 2;
+    }
 
-    container.innerHTML = '';
+    const count = position === 'top' ? topCount : position === 'middle' ? middleCount : bottomCount;
+    if (count === 0) return null;
 
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = codeForPosition;
+    const banners = [];
+    for (let i = 0; i < count; i++) {
+      banners.push(
+        <div key={i} className={`w-full ${i > 0 ? 'mt-3 md:mt-4' : ''}`}>
+          <BannerAd adCode={topCode} />
+        </div>
+      );
+    }
+    return banners;
+  };
 
-    const nodes = Array.from(tempDiv.childNodes);
-
-    nodes.forEach((node) => {
-      if (node.nodeType === 1 && node.tagName === 'SCRIPT') {
-        const script = document.createElement('script');
-        for (const attr of node.attributes) {
-          script.setAttribute(attr.name, attr.value);
-        }
-        if (node.textContent) {
-          script.textContent = node.textContent;
-        }
-        container.appendChild(script);
-      } else {
-        container.appendChild(node);
-      }
-    });
-  }, [codeForPosition]);
+  const renderRegularBanners = (code, count) => {
+    if (!code || count === 0) return null;
+    const banners = [];
+    for (let i = 0; i < count; i++) {
+      banners.push(
+        <div key={i} className={`w-full ${i > 0 ? 'mt-3 md:mt-4' : ''}`}>
+          <BannerAd adCode={code} />
+        </div>
+      );
+    }
+    return banners;
+  };
 
   if (position === 'video') {
     return <VideoAd adCode={adCodes.videoAdCode} />;
@@ -71,14 +76,33 @@ export default function AdManager({ position }) {
   if (position === 'interstitial') {
     return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
   }
+
   if (position === 'top') {
-    return <div className="mb-4" ref={containerRef} />;
+    const distributed = getDistributedBanners('top');
+    return <div className="mb-4 space-y-3 md:space-y-4">{distributed}</div>;
   }
+
   if (position === 'middle') {
-    return <div className="my-6" ref={containerRef} />;
+    const distributed = getDistributedBanners('middle');
+    const regular = renderRegularBanners(adCodes.middleBannerCode, adCodes.middleBannerCount || 1);
+    return (
+      <div className="my-6 space-y-3 md:space-y-4">
+        {distributed}
+        {regular}
+      </div>
+    );
   }
+
   if (position === 'bottom') {
-    return <div className="mt-6" ref={containerRef} />;
+    const distributed = getDistributedBanners('bottom');
+    const regular = renderRegularBanners(adCodes.bottomBannerCode, adCodes.bottomBannerCount || 1);
+    return (
+      <div className="mt-6 space-y-3 md:space-y-4">
+        {distributed}
+        {regular}
+      </div>
+    );
   }
+
   return null;
 }

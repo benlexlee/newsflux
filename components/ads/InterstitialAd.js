@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { shouldShowInterstitial, markInterstitialShown } from '../../lib/ads';
+import AdCodeRenderer from './AdCodeRenderer';
 
 export default function InterstitialAd({ adCode }) {
   const [show, setShow] = useState(false);
@@ -27,7 +28,7 @@ export default function InterstitialAd({ adCode }) {
         <div className="text-white text-center mb-2">
           {canClose ? 'Ad finished – you may close' : `Ad closes in ${countdown}s`}
         </div>
-        <div dangerouslySetInnerHTML={{ __html: adCode }} />
+        <AdCodeRenderer adCode={adCode} />
         {canClose && (
           <button
             onClick={() => { markInterstitialShown(); setShow(false); }}

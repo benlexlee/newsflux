@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import AdCodeRenderer from './AdCodeRenderer';
 
 export default function GameInterstitialAd({ adCode, onClose }) {
   const [countdown, setCountdown] = useState(3);
@@ -24,7 +25,7 @@ export default function GameInterstitialAd({ adCode, onClose }) {
         <div className="text-center text-white mb-2">
           {canClose ? 'Ad finished – continue to game' : `Video ad in ${countdown}s`}
         </div>
-        <div dangerouslySetInnerHTML={{ __html: adCode }} />
+        <AdCodeRenderer adCode={adCode} />
         {canClose && (
           <button onClick={onClose} className="mt-4 w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
             Continue to Game

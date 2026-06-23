@@ -28,7 +28,8 @@ export default function GamesPage() {
       <Header />
       <AdManager position="video" />
       <AdManager position="interstitial" />
-      <main className="container mx-auto px-4 py-6">
+      <main className="container mx-auto px-4 py-4 md:py-6">
+        <AdManager position="top" />
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="flex-1">
             <div className="flex flex-wrap gap-2 mb-6 border-b border-gray-700 pb-2">
@@ -36,13 +37,13 @@ export default function GamesPage() {
                 <button
                   key={key}
                   onClick={() => setActive(key)}
-                  className={`px-4 py-2 rounded-lg ${active === key ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+                  className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg text-sm md:text-base ${active === key ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'}`}
                 >
                   <span className="mr-1">{g.icon}</span> {g.name}
                 </button>
               ))}
             </div>
-            <div className="bg-gray-900/50 rounded-xl p-4">
+            <div className="bg-gray-900/50 rounded-xl p-3 md:p-4">
               <Component />
             </div>
           </div>
