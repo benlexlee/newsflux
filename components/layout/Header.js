@@ -11,9 +11,9 @@ export default function Header() {
     { name: 'Finance', path: '/?category=finance' },
     { name: 'Sports', path: '/?category=sports' },
     { name: 'Games', path: '/games' },
-    { name: '🎁 Rewards', path: '/rewards' },
+    { name: 'Rewards', path: '/rewards' },
     { name: 'Live Scores', path: '/live-scores' },
-];
+    { name: 'World Cup 2026', path: '/world-cup' },
   ];
   return (
     <header className="bg-gray-900 shadow-md sticky top-0 z-40 border-b border-gray-700">
@@ -22,7 +22,7 @@ export default function Header() {
           <Link href="/" className="text-2xl font-bold text-blue-500">NewsFlux</Link>
           <nav className="hidden md:flex space-x-6">
             {nav.map(item => (
-              <Link key={item.path} href={item.path} className="text-gray-300 hover:text-blue-400">{item.name}</Link>
+              <Link key={item.path} href={item.path} className="text-gray-300 hover:text-blue-400 transition">{item.name}</Link>
             ))}
           </nav>
           <div className="flex items-center gap-3">
@@ -32,7 +32,7 @@ export default function Header() {
             <div className="md:hidden">
               <details className="dropdown">
                 <summary className="text-white text-2xl">☰</summary>
-                <ul className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-lg w-40">
+                <ul className="absolute right-0 mt-2 bg-gray-800 rounded-lg shadow-lg w-48">
                   {nav.map(item => (
                     <li key={item.path}><Link href={item.path} className="block px-4 py-2 text-gray-300 hover:bg-gray-700">{item.name}</Link></li>
                   ))}
