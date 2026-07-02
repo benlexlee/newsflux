@@ -7,6 +7,7 @@ import Footer from '../components/layout/Footer';
 import AdManager from '../components/ads/AdManager';
 import MarketTicker from '../components/market/Ticker';
 import HeadlineTicker from '../components/HeadlineTicker';
+import SportsTicker from '../components/SportsTicker';
 import { incrementPageViews } from '../lib/ads';
 
 const fallbackNews = [
@@ -14,16 +15,6 @@ const fallbackNews = [
   { _id: 'f2', title: 'Real Madrid Advances to Final', summary: 'Late goal secures victory.', source: 'BBC Sport', category: 'sports', link: 'https://www.bbc.com/sport', imageUrl: '' },
   { _id: 'g1', title: 'SpaceX Successfully Launches Starship', summary: 'Fully reusable rocket completes orbital test flight.', source: 'Reuters', category: 'general', link: 'https://www.reuters.com', imageUrl: '' },
 ];
-
-// Helper to check if a date is older than X hours
-const isOlderThan = (dateString, hours = 2) => {
-  if (!dateString) return true;
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffHours = diffMs / (1000 * 60 * 60);
-  return diffHours > hours;
-};
 
 export default function Home() {
   const router = useRouter();
@@ -34,7 +25,6 @@ export default function Home() {
   const [refreshMessage, setRefreshMessage] = useState('');
   const [autoRefreshDone, setAutoRefreshDone] = useState(false);
 
-  // Main function to fetch news from API
   const fetchNews = async () => {
     try {
       const cat = category || 'general';
@@ -43,12 +33,6 @@ export default function Home() {
       const data = await res.json();
       if (data && data.length > 0) {
         setNews(data);
-        // Check if the first article is older than 2 hours → trigger auto-refresh
-        const firstItem = data[0];
-        if (firstItem.publishedAt && isOlderThan(firstItem.publishedAt, 2) && !autoRefreshDone) {
-          setRefreshMessage('🔄 News is stale. Auto‑refreshing...');
-          triggerAutoRefresh();
-        }
         return data;
       } else {
         setNews(fallbackNews);
@@ -61,29 +45,6 @@ export default function Home() {
     }
   };
 
-  // Trigger background refresh
-  const triggerAutoRefresh = async () => {
-    if (autoRefreshDone) return;
-    setAutoRefreshDone(true);
-    setRefreshing(true);
-    try {
-      const res = await fetch('/api/auto-fetch');
-      if (!res.ok) throw new Error('Auto-refresh failed');
-      setRefreshMessage('✅ Auto‑refresh triggered. News will update soon.');
-      // Wait a few seconds and refetch
-      setTimeout(async () => {
-        await fetchNews();
-        setRefreshMessage('');
-        setRefreshing(false);
-      }, 5000);
-    } catch (error) {
-      setRefreshMessage('❌ Auto‑refresh failed. Please try later.');
-      setTimeout(() => setRefreshMessage(''), 4000);
-      setRefreshing(false);
-    }
-  };
-
-  // Load news on mount and when category changes
   useEffect(() => {
     incrementPageViews();
     const load = async () => {
@@ -92,11 +53,9 @@ export default function Home() {
       setLoading(false);
     };
     load();
-    // Reset auto-refresh flag when category changes so it can trigger again
     setAutoRefreshDone(false);
   }, [category]);
 
-  // Manual refresh (user‑facing button)
   const handleManualRefresh = async () => {
     setRefreshing(true);
     setRefreshMessage('⏳ Refreshing news...');
@@ -135,6 +94,7 @@ export default function Home() {
       <main className="container mx-auto px-4 py-4 md:py-6">
         <AdManager position="top" />
         <MarketTicker />
+        <SportsTicker />   {/* ← Sports ticker added here */}
         <HeadlineTicker />
 
         <div className="flex flex-wrap items-center justify-between border-b border-gray-700 pb-2 mt-4 md:mt-6">
