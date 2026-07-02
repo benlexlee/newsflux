@@ -18,11 +18,12 @@ export default function WorldCup() {
         <h1 className="text-3xl font-bold mb-6 text-center">🏆 World Cup 2026</h1>
         <div className="flex justify-center">
           <iframe
-            src="https://www.flashscore.com/football/world/world-cup/"
+            src="https://sportscore.com/embed/competition/world-cup/"
             width="100%"
-            height="900"
+            height="1100"
             loading="lazy"
-            style={{ border: 'none', borderRadius: '8px', maxWidth: '1400px' }}
+            referrerpolicy="no-referrer-when-downgrade"
+            style={{ border: '1px solid #dce3ef', borderRadius: '8px', maxWidth: '1600px', width: '100%' }}
             title="World Cup 2026"
           />
         </div>

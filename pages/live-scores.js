@@ -18,11 +18,12 @@ export default function LiveScores() {
         <h1 className="text-3xl font-bold mb-6 text-center">⚽ Live Scores</h1>
         <div className="flex justify-center">
           <iframe
-            src="https://www.flashscore.com/"
+            src="https://sportscore.com/embed/fixtures/football/live/"
             width="100%"
-            height="800"
+            height="1000"
             loading="lazy"
-            style={{ border: 'none', borderRadius: '8px', maxWidth: '1400px' }}
+            referrerpolicy="no-referrer-when-downgrade"
+            style={{ border: '1px solid #dce3ef', borderRadius: '8px', maxWidth: '1400px', width: '100%' }}
             title="Live Football Scores"
           />
         </div>
