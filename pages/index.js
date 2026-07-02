@@ -23,12 +23,14 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState('');
-  const [autoRefreshDone, setAutoRefreshDone] = useState(false);
 
-  const fetchNews = async () => {
+  // Main function to fetch news from API (with cache buster)
+  const fetchNews = async (force = false) => {
     try {
       const cat = category || 'general';
-      const res = await fetch(`/api/news?category=${cat}`);
+      // Add cache-busting timestamp to prevent browser/Next.js caching
+      const url = `/api/news?category=${cat}&t=${Date.now()}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch news');
       const data = await res.json();
       if (data && data.length > 0) {
@@ -45,6 +47,7 @@ export default function Home() {
     }
   };
 
+  // Load news on mount and when category changes
   useEffect(() => {
     incrementPageViews();
     const load = async () => {
@@ -53,28 +56,34 @@ export default function Home() {
       setLoading(false);
     };
     load();
-    setAutoRefreshDone(false);
   }, [category]);
 
+  // Manual refresh handler
   const handleManualRefresh = async () => {
     setRefreshing(true);
     setRefreshMessage('⏳ Refreshing news...');
     try {
+      // Trigger the background auto-fetch
       const res = await fetch('/api/auto-fetch');
       if (!res.ok) throw new Error('Refresh failed');
-      setRefreshMessage('✅ News refresh triggered! It may take 10–20 seconds to update.');
-      setTimeout(async () => {
-        await fetchNews();
-        setRefreshMessage('');
-        setRefreshing(false);
-      }, 5000);
+      setRefreshMessage('✅ News refresh triggered! Fetching latest...');
+      
+      // Wait a bit for the fetch to complete (give it 10 seconds)
+      await new Promise(resolve => setTimeout(resolve, 10000));
+      
+      // Now fetch fresh news from the API (force reload with cache buster)
+      await fetchNews(true);
+      setRefreshMessage('✅ News updated successfully!');
+      setTimeout(() => setRefreshMessage(''), 4000);
     } catch (error) {
       setRefreshMessage('❌ Failed to refresh news. Try again later.');
       setTimeout(() => setRefreshMessage(''), 4000);
+    } finally {
       setRefreshing(false);
     }
   };
 
+  // Filter news by category
   let displayedNews = news;
   if (category === 'finance') {
     displayedNews = news.filter(item => item.category === 'finance');
@@ -94,7 +103,7 @@ export default function Home() {
       <main className="container mx-auto px-4 py-4 md:py-6">
         <AdManager position="top" />
         <MarketTicker />
-        <SportsTicker />   {/* ← Sports ticker added here */}
+        <SportsTicker />
         <HeadlineTicker />
 
         <div className="flex flex-wrap items-center justify-between border-b border-gray-700 pb-2 mt-4 md:mt-6">
