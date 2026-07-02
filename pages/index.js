@@ -7,7 +7,7 @@ import Footer from '../components/layout/Footer';
 import AdManager from '../components/ads/AdManager';
 import MarketTicker from '../components/market/Ticker';
 import HeadlineTicker from '../components/HeadlineTicker';
-import SportsTicker from '../components/SportsTicker';
+import LiveScoreTicker from '../components/LiveScoreTicker';
 import { incrementPageViews } from '../lib/ads';
 
 const fallbackNews = [
@@ -28,7 +28,6 @@ export default function Home() {
   const fetchNews = async (force = false) => {
     try {
       const cat = category || 'general';
-      // Add cache-busting timestamp to prevent browser/Next.js caching
       const url = `/api/news?category=${cat}&t=${Date.now()}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to fetch news');
@@ -63,15 +62,10 @@ export default function Home() {
     setRefreshing(true);
     setRefreshMessage('⏳ Refreshing news...');
     try {
-      // Trigger the background auto-fetch
       const res = await fetch('/api/auto-fetch');
       if (!res.ok) throw new Error('Refresh failed');
       setRefreshMessage('✅ News refresh triggered! Fetching latest...');
-      
-      // Wait a bit for the fetch to complete (give it 10 seconds)
       await new Promise(resolve => setTimeout(resolve, 10000));
-      
-      // Now fetch fresh news from the API (force reload with cache buster)
       await fetchNews(true);
       setRefreshMessage('✅ News updated successfully!');
       setTimeout(() => setRefreshMessage(''), 4000);
@@ -103,7 +97,7 @@ export default function Home() {
       <main className="container mx-auto px-4 py-4 md:py-6">
         <AdManager position="top" />
         <MarketTicker />
-        <SportsTicker />
+        <LiveScoreTicker />   {/* ← Live score ticker added here */}
         <HeadlineTicker />
 
         <div className="flex flex-wrap items-center justify-between border-b border-gray-700 pb-2 mt-4 md:mt-6">
