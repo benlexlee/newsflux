@@ -6,8 +6,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import AdManager from '../components/ads/AdManager';
 import MarketTicker from '../components/market/Ticker';
-import HeadlineTicker from '../components/HeadlineTicker';
-import LiveScoreTicker from '../components/LiveScoreTicker';
+import LiveIndicator from '../components/LiveIndicator';
 import { incrementPageViews } from '../lib/ads';
 
 const fallbackNews = [
@@ -24,7 +23,6 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState('');
 
-  // Main function to fetch news from API (with cache buster)
   const fetchNews = async (force = false) => {
     try {
       const cat = category || 'general';
@@ -46,7 +44,6 @@ export default function Home() {
     }
   };
 
-  // Load news on mount and when category changes
   useEffect(() => {
     incrementPageViews();
     const load = async () => {
@@ -57,7 +54,6 @@ export default function Home() {
     load();
   }, [category]);
 
-  // Manual refresh handler
   const handleManualRefresh = async () => {
     setRefreshing(true);
     setRefreshMessage('⏳ Refreshing news...');
@@ -77,7 +73,6 @@ export default function Home() {
     }
   };
 
-  // Filter news by category
   let displayedNews = news;
   if (category === 'finance') {
     displayedNews = news.filter(item => item.category === 'finance');
@@ -97,9 +92,8 @@ export default function Home() {
       <main className="container mx-auto px-4 py-4 md:py-6">
         <AdManager position="top" />
         <MarketTicker />
-        <LiveScoreTicker />   {/* ← Live score ticker added here */}
-        <HeadlineTicker />
-
+        <LiveIndicator />   {/* ← Live indicator added here */}
+        
         <div className="flex flex-wrap items-center justify-between border-b border-gray-700 pb-2 mt-4 md:mt-6">
           <div className="flex flex-wrap gap-2 md:gap-4">
             <Link href="/" className={`px-3 py-1.5 md:px-4 md:py-2 rounded-full text-sm md:text-base font-semibold ${!category ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}>All</Link>
