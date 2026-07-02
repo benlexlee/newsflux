@@ -12,6 +12,8 @@ export default function Header() {
     { name: 'Sports', path: '/?category=sports' },
     { name: 'Games', path: '/games' },
     { name: '🎁 Rewards', path: '/rewards' },
+    { name: 'Live Scores', path: '/live-scores' },
+];
   ];
   return (
     <header className="bg-gray-900 shadow-md sticky top-0 z-40 border-b border-gray-700">
