@@ -13,7 +13,6 @@ export default function Header() {
     { name: 'Games', path: '/games' },
     { name: 'Rewards', path: '/rewards' },
     { name: 'Live Scores', path: '/live-scores' },
-    { name: 'World Cup 2026', path: '/world-cup' },
   ];
   return (
     <header className="bg-gray-900 shadow-md sticky top-0 z-40 border-b border-gray-700">
