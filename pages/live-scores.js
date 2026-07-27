@@ -3,7 +3,6 @@ import Head from 'next/head';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import AdManager from '../components/ads/AdManager';
-import Link from 'next/link';
 
 export default function LiveScores() {
   const [matches, setMatches] = useState([]);
@@ -30,18 +29,13 @@ export default function LiveScores() {
 
   // Filter matches by status
   const liveMatches = matches.filter(m => 
-    m.status?.toLowerCase().includes('live') || 
-    m.status?.toLowerCase().includes('half') ||
-    m.status === 'Live'
+    m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED'
   );
   const upcomingMatches = matches.filter(m => 
-    m.status?.toLowerCase().includes('scheduled') || 
-    m.status === 'Scheduled'
+    m.status === 'SCHEDULED' || m.status === 'TIMED'
   );
   const finishedMatches = matches.filter(m => 
-    m.status?.toLowerCase().includes('finished') || 
-    m.status?.toLowerCase().includes('full time') ||
-    m.status === 'FT'
+    m.status === 'FINISHED' || m.status === 'FT'
   );
 
   const getDisplayMatches = () => {
@@ -104,7 +98,7 @@ export default function LiveScores() {
                   </div>
                   <div className="mx-4 text-center min-w-[60px]">
                     <div className="text-xl font-bold text-white">
-                      {match.home_score ?? '?'} - {match.away_score ?? '?'}
+                      {match.home_score !== null ? match.home_score : '?'} - {match.away_score !== null ? match.away_score : '?'}
                     </div>
                     <div className="text-xs text-gray-400">{match.status || 'Scheduled'}</div>
                   </div>
@@ -114,7 +108,7 @@ export default function LiveScores() {
                 </div>
                 {match.time && (
                   <div className="text-center text-xs text-gray-500 mt-2">
-                    🕐 {match.time}
+                    🕐 {match.time} {match.date && `• ${match.date}`}
                   </div>
                 )}
               </div>
@@ -123,7 +117,7 @@ export default function LiveScores() {
         )}
 
         <div className="text-center text-gray-400 text-sm mt-6">
-          🔄 Auto‑refreshes every 60 seconds • Data from SportScore
+          🔄 Auto‑refreshes every 60 seconds • Data from football-data.org
         </div>
 
         <AdManager position="bottom" />
