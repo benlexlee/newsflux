@@ -4,17 +4,18 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
-  // Get the API key from environment variables
   const apiKey = process.env.FOOTBALL_API_KEY;
 
   if (!apiKey) {
-    console.warn('FOOTBALL_API_KEY not set – returning empty array');
+    console.warn('FOOTBALL_API_KEY not set');
     return res.status(200).json([]);
   }
 
   try {
-    // Fetch today's matches from football-data.org
-    const url = 'https://api.football-data.org/v4/matches?dateFrom=2024-01-01&dateTo=2024-12-31&status=SCHEDULED,LIVE,FINISHED';
+    // Fetch today's matches
+    const today = new Date().toISOString().split('T')[0];
+    const url = `https://api.football-data.org/v4/matches?dateFrom=${today}&dateTo=${today}`;
+    
     const response = await fetch(url, {
       headers: {
         'X-Auth-Token': apiKey,
@@ -22,12 +23,11 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      console.error(`API error: ${response.status} ${response.statusText}`);
+      return res.status(200).json([]);
     }
 
     const data = await response.json();
-
-    // Transform the data into a simpler format
     const matches = (data.matches || []).map(match => ({
       home: match.homeTeam?.name || 'Team A',
       away: match.awayTeam?.name || 'Team B',
@@ -41,7 +41,6 @@ export default async function handler(req, res) {
     return res.status(200).json(matches);
   } catch (error) {
     console.error('Live scores API error:', error);
-    // Return empty array – no fake data
     return res.status(200).json([]);
   }
 }

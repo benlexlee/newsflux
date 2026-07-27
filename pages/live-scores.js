@@ -9,22 +9,22 @@ export default function LiveScores() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('live');
 
- const fetchScores = async () => {
-  try {
-    const res = await fetch('/api/scores');
-    const data = await res.json();
-    // ✅ Ensure data is an array before setting state
-    if (Array.isArray(data)) {
-      setMatches(data);
-    } else {
+  const fetchScores = async () => {
+    try {
+      const res = await fetch('/api/scores');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setMatches(data);
+      } else {
+        setMatches([]);
+      }
+    } catch (error) {
+      console.error('Error fetching scores:', error);
       setMatches([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching scores:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     fetchScores();
@@ -64,7 +64,6 @@ export default function LiveScores() {
         <AdManager position="top" />
         <h1 className="text-3xl font-bold mb-6 text-center">⚽ Live Scores</h1>
 
-        {/* Tabs */}
         <div className="flex justify-center gap-2 mb-6">
           <button 
             onClick={() => setActiveTab('live')}
@@ -86,7 +85,6 @@ export default function LiveScores() {
           </button>
         </div>
 
-        {/* Match Cards */}
         {loading ? (
           <div className="text-center py-10 text-gray-400">Loading matches...</div>
         ) : displayMatches.length === 0 ? (

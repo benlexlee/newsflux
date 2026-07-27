@@ -10,12 +10,9 @@ export default function LiveIndicator() {
       try {
         const res = await fetch('/api/scores');
         const data = await res.json();
-        // ✅ Ensure data is an array before using .filter()
         if (Array.isArray(data)) {
           const count = data.filter(m => 
-            m.status?.toLowerCase().includes('live') || 
-            m.status?.toLowerCase().includes('half') ||
-            m.status === 'Live'
+            m.status === 'LIVE' || m.status === 'IN_PLAY' || m.status === 'PAUSED'
           ).length;
           setLiveCount(count);
         } else {
