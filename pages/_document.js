@@ -4,15 +4,12 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head>
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-2MGS6NPTSN"></script>
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-2MGS6NPTSN');
-          `
-        }} />
+        {/* Google AdSense */}
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2355313955975976"
+          crossOrigin="anonymous"
+        ></script>
       </Head>
       <body>
         <Main />

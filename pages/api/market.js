@@ -4,42 +4,87 @@ export default async function handler(req, res) {
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
+  const prices = {
+    bitcoin: null,
+    gold: null,
+    eur_usd: null,
+    sp500: null,
+  };
+
+  // 1. Bitcoin – CoinGecko (free, no API key)
   try {
-    // Bitcoin from CoinGecko (free, no key)
-    let bitcoin = 42000;
-    try {
-      const btcRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
-      const btcData = await btcRes.json();
-      bitcoin = btcData.bitcoin?.usd || 42000;
-    } catch (e) { console.log('BTC API error'); }
+    const btcRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd', {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (btcRes.ok) {
+      const data = await btcRes.json();
+      prices.bitcoin = data.bitcoin?.usd;
+    }
+  } catch (e) { /* ignore */ }
 
-    // Gold from GoldAPI (free)
-    let gold = 2350;
-    try {
-      const goldRes = await fetch('https://api.gold-api.com/price/XAU');
-      const goldData = await goldRes.json();
-      gold = goldData.price || 2350;
-    } catch (e) { console.log('Gold API error'); }
+  // 2. Gold – GoldAPI (free, no key) or fallback to a reliable source
+  try {
+    const goldRes = await fetch('https://api.gold-api.com/price/XAU');
+    if (goldRes.ok) {
+      const data = await goldRes.json();
+      prices.gold = data.price;
+    }
+  } catch (e) { /* ignore */ }
 
-    // EUR/USD from ExchangeRate-API (free)
-    let eurUsd = 1.09;
+  // If GoldAPI fails, try an alternative
+  if (!prices.gold) {
     try {
-      const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
-      const forexData = await forexRes.json();
-      eurUsd = forexData.rates?.USD || 1.09;
-    } catch (e) { console.log('Forex API error'); }
-
-    // S&P 500 from Yahoo Finance (via proxy)
-    let sp500 = 4800;
-    try {
-      const spRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC');
-      const spData = await spRes.json();
-      sp500 = spData.chart?.result?.[0]?.meta?.regularMarketPrice || 4800;
-    } catch (e) { console.log('S&P 500 API error'); }
-
-    res.status(200).json({ bitcoin, gold, eur_usd: eurUsd, sp500 });
-  } catch (error) {
-    console.error('Market API error:', error);
-    res.status(200).json({ bitcoin: 42000, gold: 2350, eur_usd: 1.09, sp500: 4800 });
+      const altGold = await fetch('https://www.goldprice.org/feed/GetGoldPrice/');
+      // This may return a simple text price; we'll attempt to parse
+      if (altGold.ok) {
+        const text = await altGold.text();
+        const match = text.match(/\d+\.?\d*/);
+        if (match) prices.gold = parseFloat(match[0]);
+      }
+    } catch (e) { /* ignore */ }
   }
+
+  // 3. EUR/USD – ExchangeRate-API (free, no key)
+  try {
+    const forexRes = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
+    if (forexRes.ok) {
+      const data = await forexRes.json();
+      prices.eur_usd = data.rates?.USD;
+    }
+  } catch (e) { /* ignore */ }
+
+  // Fallback for EUR/USD if above fails
+  if (!prices.eur_usd) {
+    try {
+      const altForex = await fetch('https://api.frankfurter.app/latest?from=EUR&to=USD');
+      if (altForex.ok) {
+        const data = await altForex.json();
+        prices.eur_usd = data.rates?.USD;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // 4. S&P 500 – Yahoo Finance via CORS proxy
+  try {
+    const spRes = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC', {
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    });
+    if (spRes.ok) {
+      const data = await spRes.json();
+      const result = data.chart?.result?.[0];
+      if (result) {
+        const quote = result.meta?.regularMarketPrice;
+        if (quote) prices.sp500 = quote;
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  // Fallback to hardcoded (last known values) if all APIs fail
+  // Use reasonable defaults so ticker never shows "null"
+  res.status(200).json({
+    bitcoin: prices.bitcoin || 42000,
+    gold: prices.gold || 2350,
+    eur_usd: prices.eur_usd || 1.09,
+    sp500: prices.sp500 || 4800,
+  });
 }
