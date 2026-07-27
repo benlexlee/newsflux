@@ -9,17 +9,22 @@ export default function LiveScores() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('live');
 
-  const fetchScores = async () => {
-    try {
-      const res = await fetch('/api/scores');
-      const data = await res.json();
+ const fetchScores = async () => {
+  try {
+    const res = await fetch('/api/scores');
+    const data = await res.json();
+    // ✅ Ensure data is an array before setting state
+    if (Array.isArray(data)) {
       setMatches(data);
-    } catch (error) {
-      console.error('Error fetching scores:', error);
-    } finally {
-      setLoading(false);
+    } else {
+      setMatches([]);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching scores:', error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     fetchScores();

@@ -10,13 +10,17 @@ export default function LiveIndicator() {
       try {
         const res = await fetch('/api/scores');
         const data = await res.json();
-        // Count matches with status 'Live' or '1st Half' or '2nd Half'
-        const count = data.filter(m => 
-          m.status?.toLowerCase().includes('live') || 
-          m.status?.toLowerCase().includes('half') ||
-          m.status === 'Live'
-        ).length;
-        setLiveCount(count);
+        // ✅ Ensure data is an array before using .filter()
+        if (Array.isArray(data)) {
+          const count = data.filter(m => 
+            m.status?.toLowerCase().includes('live') || 
+            m.status?.toLowerCase().includes('half') ||
+            m.status === 'Live'
+          ).length;
+          setLiveCount(count);
+        } else {
+          setLiveCount(0);
+        }
       } catch (error) {
         console.error('Error fetching live count:', error);
         setLiveCount(0);
