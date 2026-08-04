@@ -25,11 +25,11 @@ export default function AdManager({ position }) {
     loadAds();
   }, []);
 
-  // ✅ Distribute banners for TOP (stacked vertically)
-  const getDistributedTopBanners = (position) => {
-    const topCode = adCodes.topBannerCode;
+  // ✅ DISTRIBUTE TOP BANNER (stacked) – unchanged
+  const getDistributedTopBanners = (section) => {
+    const code = adCodes.topBannerCode;
     const totalCount = adCodes.topBannerCount || 1;
-    if (!topCode || totalCount === 0) return null;
+    if (!code || totalCount === 0) return null;
 
     let topCount = 0, middleCount = 0, bottomCount = 0;
     if (totalCount === 1) {
@@ -43,26 +43,27 @@ export default function AdManager({ position }) {
       middleCount = totalCount - 2;
     }
 
-    const count = position === 'top' ? topCount : position === 'middle' ? middleCount : bottomCount;
+    const count = section === 'top' ? topCount : section === 'middle' ? middleCount : bottomCount;
     if (count === 0) return null;
 
     const banners = [];
     for (let i = 0; i < count; i++) {
       banners.push(
         <div key={i} className="w-full">
-          <BannerAd adCode={topCode} />
+          <BannerAd adCode={code} />
         </div>
       );
     }
     return <div className="space-y-3 md:space-y-4">{banners}</div>;
   };
 
-  // ✅ Distribute banners for BOTTOM (side‑by‑side)
-  const getDistributedBottomBanners = (position) => {
-    const bottomCode = adCodes.bottomBannerCode;
+  // ✅ DISTRIBUTE BOTTOM BANNER (side‑by‑side in the bottom section)
+  const getDistributedBottomBanners = (section) => {
+    const code = adCodes.bottomBannerCode;
     const totalCount = adCodes.bottomBannerCount || 1;
-    if (!bottomCode || totalCount === 0) return null;
+    if (!code || totalCount === 0) return null;
 
+    // Same distribution logic as top banner
     let topCount = 0, middleCount = 0, bottomCount = 0;
     if (totalCount === 1) {
       bottomCount = 1;
@@ -75,25 +76,39 @@ export default function AdManager({ position }) {
       middleCount = totalCount - 2;
     }
 
-    const count = position === 'top' ? topCount : position === 'middle' ? middleCount : bottomCount;
+    const count = section === 'top' ? topCount : section === 'middle' ? middleCount : bottomCount;
     if (count === 0) return null;
 
-    const banners = [];
-    for (let i = 0; i < count; i++) {
-      banners.push(
-        <div key={i} className="flex-1 min-w-[150px] max-w-[50%] md:max-w-[33%]">
-          <BannerAd adCode={bottomCode} />
+    // For bottom section, render side‑by‑side
+    if (section === 'bottom') {
+      const banners = [];
+      for (let i = 0; i < count; i++) {
+        banners.push(
+          <div key={i} className="flex-1 min-w-[150px] max-w-[50%] md:max-w-[33%]">
+            <BannerAd adCode={code} />
+          </div>
+        );
+      }
+      return (
+        <div className="flex flex-wrap gap-3 md:gap-4 justify-center">
+          {banners}
         </div>
       );
     }
-    return (
-      <div className={`flex flex-wrap gap-3 md:gap-4 justify-center`}>
-        {banners}
-      </div>
-    );
+
+    // For top/middle sections, render stacked (same as top banner)
+    const banners = [];
+    for (let i = 0; i < count; i++) {
+      banners.push(
+        <div key={i} className="w-full">
+          <BannerAd adCode={code} />
+        </div>
+      );
+    }
+    return <div className="space-y-3 md:space-y-4">{banners}</div>;
   };
 
-  // ✅ Regular banners for MIDDLE (stacked vertically)
+  // ✅ REGULAR MIDDLE BANNER (stacked)
   const renderRegularBanners = (code, count) => {
     if (!code || count === 0) return null;
     const banners = [];
@@ -114,12 +129,12 @@ export default function AdManager({ position }) {
     return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
   }
 
-  // ✅ TOP – distributed (stacked)
+  // TOP – top banner distribution (stacked)
   if (position === 'top') {
     return <div className="mb-4">{getDistributedTopBanners('top')}</div>;
   }
 
-  // ✅ MIDDLE – distributed top banners (stacked) + regular middle banners (stacked)
+  // MIDDLE – top banner distribution (stacked) + regular middle banners (stacked)
   if (position === 'middle') {
     const topDistributed = getDistributedTopBanners('middle');
     const regular = renderRegularBanners(adCodes.middleBannerCode, adCodes.middleBannerCount || 1);
@@ -131,7 +146,7 @@ export default function AdManager({ position }) {
     );
   }
 
-  // ✅ BOTTOM – distributed top banners (stacked) + distributed bottom banners (side‑by‑side)
+  // BOTTOM – top banner distribution (stacked) + bottom banner distribution (side‑by‑side)
   if (position === 'bottom') {
     const topDistributed = getDistributedTopBanners('bottom');
     const bottomDistributed = getDistributedBottomBanners('bottom');
