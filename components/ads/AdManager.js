@@ -25,29 +25,76 @@ export default function AdManager({ position }) {
     loadAds();
   }, []);
 
-  // ✅ Render function for BOTTOM ONLY (side-by-side)
-  const renderBottomBanners = (code, count, className = '') => {
-    if (!code || count === 0) return null;
-    if (count === 1) {
-      return <BannerAd adCode={code} />;
+  // ✅ Distribute banners for TOP (stacked vertically)
+  const getDistributedTopBanners = (position) => {
+    const topCode = adCodes.topBannerCode;
+    const totalCount = adCodes.topBannerCount || 1;
+    if (!topCode || totalCount === 0) return null;
+
+    let topCount = 0, middleCount = 0, bottomCount = 0;
+    if (totalCount === 1) {
+      topCount = 1;
+    } else if (totalCount === 2) {
+      topCount = 1;
+      middleCount = 1;
+    } else {
+      topCount = 1;
+      bottomCount = 1;
+      middleCount = totalCount - 2;
     }
+
+    const count = position === 'top' ? topCount : position === 'middle' ? middleCount : bottomCount;
+    if (count === 0) return null;
+
+    const banners = [];
+    for (let i = 0; i < count; i++) {
+      banners.push(
+        <div key={i} className="w-full">
+          <BannerAd adCode={topCode} />
+        </div>
+      );
+    }
+    return <div className="space-y-3 md:space-y-4">{banners}</div>;
+  };
+
+  // ✅ Distribute banners for BOTTOM (side‑by‑side)
+  const getDistributedBottomBanners = (position) => {
+    const bottomCode = adCodes.bottomBannerCode;
+    const totalCount = adCodes.bottomBannerCount || 1;
+    if (!bottomCode || totalCount === 0) return null;
+
+    let topCount = 0, middleCount = 0, bottomCount = 0;
+    if (totalCount === 1) {
+      bottomCount = 1;
+    } else if (totalCount === 2) {
+      middleCount = 1;
+      bottomCount = 1;
+    } else {
+      topCount = 1;
+      bottomCount = 1;
+      middleCount = totalCount - 2;
+    }
+
+    const count = position === 'top' ? topCount : position === 'middle' ? middleCount : bottomCount;
+    if (count === 0) return null;
+
     const banners = [];
     for (let i = 0; i < count; i++) {
       banners.push(
         <div key={i} className="flex-1 min-w-[150px] max-w-[50%] md:max-w-[33%]">
-          <BannerAd adCode={code} />
+          <BannerAd adCode={bottomCode} />
         </div>
       );
     }
     return (
-      <div className={`flex flex-wrap gap-3 md:gap-4 justify-center ${className}`}>
+      <div className={`flex flex-wrap gap-3 md:gap-4 justify-center`}>
         {banners}
       </div>
     );
   };
 
-  // ✅ Regular render for Top and Middle (stacked vertically)
-  const renderStackedBanners = (code, count, className = '') => {
+  // ✅ Regular banners for MIDDLE (stacked vertically)
+  const renderRegularBanners = (code, count) => {
     if (!code || count === 0) return null;
     const banners = [];
     for (let i = 0; i < count; i++) {
@@ -57,7 +104,7 @@ export default function AdManager({ position }) {
         </div>
       );
     }
-    return <div className={`space-y-3 md:space-y-4 ${className}`}>{banners}</div>;
+    return <div className="space-y-3 md:space-y-4">{banners}</div>;
   };
 
   if (position === 'video') {
@@ -67,19 +114,33 @@ export default function AdManager({ position }) {
     return <InterstitialAd adCode={adCodes.interstitialAdCode} />;
   }
 
-  // Top – stacked (unchanged)
+  // ✅ TOP – distributed (stacked)
   if (position === 'top') {
-    return renderStackedBanners(adCodes.topBannerCode, adCodes.topBannerCount || 1, 'mb-4');
+    return <div className="mb-4">{getDistributedTopBanners('top')}</div>;
   }
 
-  // Middle – stacked (unchanged)
+  // ✅ MIDDLE – distributed top banners (stacked) + regular middle banners (stacked)
   if (position === 'middle') {
-    return renderStackedBanners(adCodes.middleBannerCode, adCodes.middleBannerCount || 1, 'my-6');
+    const topDistributed = getDistributedTopBanners('middle');
+    const regular = renderRegularBanners(adCodes.middleBannerCode, adCodes.middleBannerCount || 1);
+    return (
+      <div className="my-6 space-y-3 md:space-y-4">
+        {topDistributed}
+        {regular}
+      </div>
+    );
   }
 
-  // ✅ Bottom – side‑by‑side (NEW)
+  // ✅ BOTTOM – distributed top banners (stacked) + distributed bottom banners (side‑by‑side)
   if (position === 'bottom') {
-    return renderBottomBanners(adCodes.bottomBannerCode, adCodes.bottomBannerCount || 1, 'mt-6');
+    const topDistributed = getDistributedTopBanners('bottom');
+    const bottomDistributed = getDistributedBottomBanners('bottom');
+    return (
+      <div className="mt-6 space-y-3 md:space-y-4">
+        {topDistributed}
+        {bottomDistributed}
+      </div>
+    );
   }
 
   return null;
